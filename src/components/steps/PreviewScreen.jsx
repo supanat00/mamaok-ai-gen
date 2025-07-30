@@ -257,8 +257,22 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
             let audioBufferQueue = [];
             let audioClosed = false;
             try {
-                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioTrack = audioStream.getAudioTracks()[0];
+                // ใช้ stream เดียวกันกับกล้อง (ไม่ขอสิทธิ์ใหม่)
+                if (currentStream) {
+                    const audioTracks = currentStream.getAudioTracks();
+                    if (audioTracks.length > 0) {
+                        audioTrack = audioTracks[0];
+                        audioStream = new MediaStream([audioTrack]);
+                    } else {
+                        // ถ้าไม่มี audio track ใน stream เดิม ให้ขอใหม่
+                        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        audioTrack = audioStream.getAudioTracks()[0];
+                    }
+                } else {
+                    // ถ้าไม่มี stream เดิม ให้ขอใหม่
+                    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioTrack = audioStream.getAudioTracks()[0];
+                }
                 audioContext = new window.AudioContext({ sampleRate: audioSampleRate });
                 audioSource = audioContext.createMediaStreamSource(audioStream);
                 audioProcessor = audioContext.createScriptProcessor(4096, audioChannels, audioChannels);
@@ -431,19 +445,40 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
             // สร้าง video stream จาก canvas
             const videoStream = recordingCanvas.captureStream(30);
 
-            // เพิ่ม audio stream
+            // เพิ่ม audio stream (ใช้ stream เดียวกันกับกล้อง)
             let audioStream = null;
             let audioTrack = null;
             try {
-                audioStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
+                if (currentStream) {
+                    const audioTracks = currentStream.getAudioTracks();
+                    if (audioTracks.length > 0) {
+                        audioTrack = audioTracks[0];
+                        audioStream = new MediaStream([audioTrack]);
+                        audioTrackRef.current = audioTrack;
+                    } else {
+                        // ถ้าไม่มี audio track ใน stream เดิม ให้ขอใหม่
+                        audioStream = await navigator.mediaDevices.getUserMedia({
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            }
+                        });
+                        audioTrack = audioStream.getAudioTracks()[0];
+                        audioTrackRef.current = audioTrack;
                     }
-                });
-                audioTrack = audioStream.getAudioTracks()[0];
-                audioTrackRef.current = audioTrack;
+                } else {
+                    // ถ้าไม่มี stream เดิม ให้ขอใหม่
+                    audioStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    audioTrack = audioStream.getAudioTracks()[0];
+                    audioTrackRef.current = audioTrack;
+                }
             } catch (audioError) {
                 console.warn("Audio permission denied or not available, recording without audio:", audioError);
             }
