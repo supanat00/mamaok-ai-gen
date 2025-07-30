@@ -1,43 +1,50 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import '../../App.css';
-import mamaLogo from '../../assets/logos/mama.png';
 
 // เพิ่ม import สำหรับ Muxer (Chrome/Android)
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
-import pack from '../../assets/flavor/secret/pack.png';
-import asset01 from '../../assets/flavor/secret/asset01.png';
-import asset02 from '../../assets/flavor/secret/asset02.png';
-import asset03 from '../../assets/flavor/secret/asset03.png';
-import asset04 from '../../assets/flavor/secret/asset04.png';
-import mockupImage from '../../assets/mockup/mockup.png';
-// เพิ่ม import สำหรับ tonkotsu assets
-import tonkotsuHead from '../../assets/flavor/tonkotsu/head.png';
-import tonkotsuAsset01 from '../../assets/flavor/tonkotsu/asset01.png';
-import tonkotsuAsset02 from '../../assets/flavor/tonkotsu/asset02.png';
-import tonkotsuAsset03 from '../../assets/flavor/tonkotsu/asset03.png';
-import tonkotsuProp from '../../assets/flavor/tonkotsu/prop.png';
-import tonkotsuPack from '../../assets/flavor/tonkotsu/pack.png';
-// เพิ่ม import สำหรับ kimchi และ cheesy-gochujang head
-import kimchiHead from '../../assets/flavor/kimchi/head.png';
-import cheesyGochujangHead from '../../assets/flavor/cheesy-gochujang/head.png';
-// เพิ่ม import สำหรับ asset01 ของทั้ง 2 รสชาติ
-import kimchiAsset01 from '../../assets/flavor/kimchi/asset01.png';
-import cheesyGochujangAsset01 from '../../assets/flavor/cheesy-gochujang/asset01.png';
-// เพิ่ม import สำหรับ pack และ prop ของทั้ง 2 รสชาติ
-import kimchiPack from '../../assets/flavor/kimchi/pack.png';
-import kimchiProp from '../../assets/flavor/kimchi/prop.png';
-import cheesyGochujangPack from '../../assets/flavor/cheesy-gochujang/pack.png';
-import cheesyGochujangProp from '../../assets/flavor/cheesy-gochujang/prop.png';
-// เพิ่ม import สำหรับ asset02 และ asset03 ของทั้ง 2 รสชาติ
-import kimchiAsset02 from '../../assets/flavor/kimchi/asset02.png';
-import kimchiAsset03 from '../../assets/flavor/kimchi/asset03.png';
-import cheesyGochujangAsset02 from '../../assets/flavor/cheesy-gochujang/asset02.png';
-import cheesyGochujangAsset03 from '../../assets/flavor/cheesy-gochujang/asset03.png';
 
-// เพิ่มไอคอนสำหรับปุ่มควบคุม
-import cameraIcon from '../../assets/icons/camera.svg';
-import videoIcon from '../../assets/icons/video.svg';
-import switchCameraIcon from '../../assets/icons/switch-camera.webp';
+// ใช้ path จาก public แทน import
+const mamaLogo = '/assets/logos/mama.png';
+const pack = '/assets/flavor/secret/pack.png';
+const asset01 = '/assets/flavor/secret/asset01.png';
+const asset02 = '/assets/flavor/secret/asset02.png';
+const asset03 = '/assets/flavor/secret/asset03.png';
+const asset04 = '/assets/flavor/secret/asset04.png';
+const mockupImage = '/assets/mockup/mockup.png';
+
+// tonkotsu assets
+const tonkotsuHead = '/assets/flavor/tonkotsu/head.png';
+const tonkotsuAsset01 = '/assets/flavor/tonkotsu/asset01.png';
+const tonkotsuAsset02 = '/assets/flavor/tonkotsu/asset02.png';
+const tonkotsuAsset03 = '/assets/flavor/tonkotsu/asset03.png';
+const tonkotsuProp = '/assets/flavor/tonkotsu/prop.png';
+const tonkotsuPack = '/assets/flavor/tonkotsu/pack.png';
+
+// kimchi และ cheesy-gochujang head
+const kimchiHead = '/assets/flavor/kimchi/head.png';
+const cheesyGochujangHead = '/assets/flavor/cheesy-gochujang/head.png';
+
+// asset01 ของทั้ง 2 รสชาติ
+const kimchiAsset01 = '/assets/flavor/kimchi/asset01.png';
+const cheesyGochujangAsset01 = '/assets/flavor/cheesy-gochujang/asset01.png';
+
+// pack และ prop ของทั้ง 2 รสชาติ
+const kimchiPack = '/assets/flavor/kimchi/pack.png';
+const kimchiProp = '/assets/flavor/kimchi/prop.png';
+const cheesyGochujangPack = '/assets/flavor/cheesy-gochujang/pack.png';
+const cheesyGochujangProp = '/assets/flavor/cheesy-gochujang/prop.png';
+
+// asset02 และ asset03 ของทั้ง 2 รสชาติ
+const kimchiAsset02 = '/assets/flavor/kimchi/asset02.png';
+const kimchiAsset03 = '/assets/flavor/kimchi/asset03.png';
+const cheesyGochujangAsset02 = '/assets/flavor/cheesy-gochujang/asset02.png';
+const cheesyGochujangAsset03 = '/assets/flavor/cheesy-gochujang/asset03.png';
+
+// ไอคอนสำหรับปุ่มควบคุม
+const cameraIcon = '/assets/icons/camera.svg';
+const videoIcon = '/assets/icons/video.svg';
+const switchCameraIcon = '/assets/icons/switch-camera.webp';
 
 // เพิ่ม import สำหรับ PreviewModal
 import PreviewModal from './PreviewModal';
@@ -914,7 +921,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 };
 
                 // โหลดพื้นหลัง
-                backgroundImage.src = imageUrl || '/src/assets/mockup/mockup.png';
+                backgroundImage.src = imageUrl || '/assets/mockup/mockup.png';
             });
 
         } catch (error) {
