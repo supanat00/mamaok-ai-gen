@@ -35,9 +35,9 @@ import cheesyProp from '../../assets/flavor/cheesy-gochujang/prop.png';
 const mockupImage = '/mockup/mockup.png';
 
 // ไอคอนสำหรับปุ่มควบคุม
-const cameraIcon = '/assets/icons/camera.svg';
-const videoIcon = '/assets/icons/video.svg';
-const switchCameraIcon = '/assets/icons/switch-camera.webp';
+import cameraIcon from '../../assets/icons/camera.svg';
+import videoIcon from '../../assets/icons/video.svg';
+import switchCameraIcon from '../../assets/icons/switch-camera.webp';
 
 // เพิ่ม import สำหรับ PreviewModal
 import PreviewModal from './PreviewModal';
