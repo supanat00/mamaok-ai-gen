@@ -1,0 +1,425 @@
+#root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  overflow: hidden;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* === Clock Progress Animation === */
+@keyframes dash-record {
+  0% {
+    border-image: conic-gradient(from 0deg, #fff 0deg, transparent 0deg) 1;
+  }
+  25% {
+    border-image: conic-gradient(from 0deg, #fff 90deg, transparent 90deg) 1;
+  }
+  50% {
+    border-image: conic-gradient(from 0deg, #fff 180deg, transparent 180deg) 1;
+  }
+  75% {
+    border-image: conic-gradient(from 0deg, #fff 270deg, transparent 270deg) 1;
+  }
+  100% {
+    border-image: conic-gradient(from 0deg, #fff 360deg, transparent 360deg) 1;
+  }
+}
+
+/* === Video Record Button Progress Ring === */
+.record-button {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid white;
+  padding: 3px;
+  cursor: pointer;
+  background-color: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.12s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.record-button:active {
+  transform: scale(0.95);
+}
+.record-button.recording {
+  border: 4px solid transparent;
+}
+.record-button .ring {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+}
+.record-button.recording .ring {
+  opacity: 1;
+}
+.record-button .ring svg {
+  width: 64px;
+  height: 64px;
+  display: block;
+}
+.record-button .ring .progress-ring {
+  stroke-width: 4;
+  stroke-dasharray: 175.93;
+  stroke-dashoffset: 175.93;
+}
+.record-button.recording .ring .progress-ring {
+  animation: dash-record 30s linear;
+  animation-fill-mode: forwards;
+}
+.record-button .inner-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  width: 85%;
+  height: 85%;
+  border-radius: 50%;
+  background-color: #ff3b30;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+.record-button.recording .inner-shape {
+  width: 40%;
+  height: 40%;
+  border-radius: 20%;
+}
+@keyframes dash-record {
+  from {
+    stroke-dashoffset: 175.93;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* === Photo Button === */
+.photo-button {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid white;
+  padding: 3px;
+  cursor: pointer;
+  background-color: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.12s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.photo-button:active {
+  transform: scale(0.95);
+}
+.photo-button .circle {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: white;
+}
+
+/* === Preview Modal === */
+.preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: auto;
+  z-index: 2000;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-out, visibility 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 16px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
+}
+
+.preview-modal-bg {
+  position: fixed;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .preview-modal {
+    padding-top: clamp(8px, 3vh, 20px);
+    padding-bottom: clamp(8px, 3vh, 20px);
+  }
+}
+
+@media (min-width: 601px) and (max-width: 1024px) {
+  .preview-modal {
+    padding-top: clamp(16px, 5vh, 40px);
+    padding-bottom: clamp(12px, 5vh, 40px);
+  }
+}
+
+.preview-modal.visible {
+  opacity: 1;
+  visibility: visible;
+  justify-content: center;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.preview-background-image {
+  display: none;
+}
+
+.preview-background-image.true-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 20px;
+  z-index: 0;
+}
+
+.preview-content-frame {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: min(75vw, 550px);
+  aspect-ratio: 9 / 16;
+  height: auto;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 16px auto 0 auto;
+  background: none;
+  border-radius: 20px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.12);
+}
+
+.preview-content {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 20px;
+}
+
+.preview-content.with-border {
+  border-radius: 20px;
+  border: 3px solid white;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.preview-actions-container {
+  position: static;
+  width: 100%;
+  max-width: min(75vw, 550px);
+  margin: 18px auto 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 3;
+  padding: 0 16px;
+  box-sizing: border-box;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.preview-actions-top-row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  align-items: stretch;
+}
+
+.preview-actions-top-row > .preview-button {
+  width: auto;
+  flex: 1 1 0%;
+  min-width: 0;
+  height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 24px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  -webkit-tap-highlight-color: transparent;
+  background-color: #fff;
+  color: #333;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-button {
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 100%;
+  width: auto;
+  height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 24px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  -webkit-tap-highlight-color: transparent;
+  background-color: #fff;
+  color: #333;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.preview-button:active {
+  transform: translateY(0px) scale(0.98);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.preview-button.primary {
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #e0e0e0;
+  font-weight: 700;
+}
+
+.preview-button.secondary {
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #e0e0e0;
+}
+
+.preview-button.full-width {
+  width: 100%;
+  margin-top: 0;
+}
+
+@media (min-height: 700px) {
+  .preview-modal.visible {
+    justify-content: center;
+  }
+}
+
+/* การแสดงผลยืนยัน */
+.feedback-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 25px;
+  z-index: 3000;
+  animation: feedbackFadeIn 0.3s ease-out;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.feedback-message p {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+@keyframes feedbackFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

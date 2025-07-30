@@ -1,0 +1,416 @@
+/* --- UI Overlay Container --- */
+.ui-overlay {
+  position: absolute; /* ยึดกับ .ar-overlay */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out;
+}
+
+/* --- Camera Controls --- */
+.camera-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: auto;
+  padding: 0 0 max(env(safe-area-inset-bottom, 0), 80px) 0;
+  box-sizing: border-box;
+  z-index: 99;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.controls-col {
+  display: flex;
+  align-items: center;
+}
+
+.controls-left {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+}
+
+.controls-center {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+.controls-right {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+/* --- สลับกล้องหน้า - หลัง --- */
+.action-button {
+  width: clamp(36px, 8vw, 44px);
+  height: clamp(36px, 8vw, 44px);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0; /* เอา padding เริ่มต้นออก */
+  position: relative;
+  z-index: 1;
+}
+
+/* 
+ * สไตล์สำหรับ <img> ที่เป็นไอคอนในปุ่ม
+ */
+.action-icon {
+  width: 100%; /* ทำให้ไอคอนมีขนาดพอดีกับปุ่ม */
+  height: 100%;
+  object-fit: contain;
+
+  /* 
+     * กำหนด Transition สำหรับการหมุน
+     * ทำให้การหมุนเกิดขึ้นอย่างนุ่มนวล
+    */
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 
+ * เมื่อไอคอนมี class 'flipping' (ตอนเป็นกล้องหลัง)
+ * ให้ทำการหมุน 180 องศารอบแกน Y
+ */
+.action-icon.flipping {
+  transform: rotate(180deg);
+}
+
+/* === Photo Button (โหมดถ่ายภาพ) === */
+.photo-button {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid white;
+  padding: 3px;
+  cursor: pointer;
+  background-color: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.1s ease-in-out;
+  position: static !important;
+  margin: 0 auto;
+  left: unset !important;
+  right: unset !important;
+  bottom: unset !important;
+  transform: none !important;
+  z-index: 2;
+}
+
+/* 2. ทำให้ปุ่มยุบเมื่อกด */
+.photo-button:active {
+  transform: scale(0.92);
+}
+
+.photo-button .circle {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: white;
+}
+
+/* === Record Button (โหมดวิดีโอ) === */
+.record-button {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid white;
+  cursor: pointer;
+  background-color: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  transition: transform 0.1s ease-in-out;
+  overflow: visible;
+  margin: 0 auto;
+  z-index: 2;
+}
+
+/* ทำให้ปุ่มยุบเมื่อกด */
+.record-button:active {
+  transform: scale(0.92);
+}
+
+.record-button.recording {
+  border: 4px solid transparent;
+}
+
+.record-button .ring {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.record-button.recording .ring {
+  opacity: 1;
+}
+
+.record-button .ring svg {
+  width: 64px;
+  height: 64px;
+  display: block;
+}
+
+.record-button .ring .progress-ring {
+  stroke-width: 4;
+  stroke-dasharray: 175.93;
+  stroke-dashoffset: 175.93;
+}
+
+.record-button.recording .ring .progress-ring {
+  animation: dash-record 30s linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes dash-record {
+  from {
+    stroke-dashoffset: 175.93;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.record-button .inner-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  width: 85%;
+  height: 85%;
+  border-radius: 50%;
+  background-color: #ff3b30;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+.record-button.recording .inner-shape {
+  width: 40%;
+  height: 40%;
+  border-radius: 20%;
+}
+
+/* === ปุ่มสลับโหมดถ่ายภาพ/วิดีโอแบบใหม่ === */
+.mode-toggle-group {
+  position: relative;
+  z-index: 1;
+  margin-left: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background: #fff;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  padding: 2px 2px;
+  gap: 0;
+  min-width: 72px;
+  min-height: 36px;
+}
+.mode-toggle-divider {
+  width: 2px;
+  height: 28px;
+  background: #e74c3c;
+  margin: 0 8px;
+  border-radius: 2px;
+  align-self: center;
+}
+.mode-toggle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px !important;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, filter 0.15s;
+  outline: none;
+  padding: 0;
+  position: relative;
+  filter: none;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.mode-toggle-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  color: #000;
+  stroke: #000;
+  filter: none;
+  opacity: 1;
+}
+.mode-toggle-btn.active {
+  background: #cccccc;
+  box-shadow: none;
+  filter: none;
+  border: none;
+}
+.mode-toggle-btn:hover:not(:disabled),
+.mode-toggle-btn:focus-visible {
+  background: #cccccc !important;
+  filter: none;
+  transform: scale(1.08);
+}
+.mode-toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.mode-toggle-btn:focus,
+.mode-toggle-btn:focus-visible,
+.mode-toggle-btn:active {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* --- ✨ Style ใหม่สำหรับ Processing Overlay ✨ --- */
+.processing-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100; /* อยู่เหนือ camera-controls */
+  color: white;
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+.processing-overlay .spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.processing-overlay p {
+  margin-top: 16px;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.camera-controls > .action-button,
+.camera-controls > .mode-toggle-group {
+  position: relative;
+  align-self: flex-end;
+  margin: 0 16px;
+  margin-bottom: 0;
+  z-index: 1;
+}
+
+.camera-controls > .photo-button,
+.camera-controls > .record-button {
+  position: absolute;
+  left: 50vw;
+  bottom: 0;
+  transform: translateX(-50vw, 0);
+  margin: 0;
+  z-index: 2;
+}
+
+.camera-bar-col {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  overflow: hidden;
+}
+.camera-bar-col.left {
+  justify-content: flex-start;
+}
+.camera-bar-col.right {
+  justify-content: flex-end;
+}
+
+.camera-bar-col.left .action-button {
+  margin-left: 16px;
+  margin-bottom: 0;
+}
+.camera-bar-col.right .mode-toggle-group {
+  margin-right: 16px;
+  margin-bottom: 0;
+}
+
+/* --- Camera Warning Overlay --- */
+.camera-warning-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.camera-warning {
+  background-color: white;
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  max-width: 300px;
+  margin: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.camera-warning p {
+  margin: 8px 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: 500;
+}
+
+.camera-warning p:first-child {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e74c3c;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
