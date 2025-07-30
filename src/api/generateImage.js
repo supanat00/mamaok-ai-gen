@@ -70,5 +70,5 @@ export async function generateImageWithDalle3() {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   // ส่งคืน mockup image ที่มีอยู่แล้ว (ไม่ต้อง generate ใหม่)
-  return "/assets/mockup/mockup.png";
+  return "/mockup/mockup.png";
 }
