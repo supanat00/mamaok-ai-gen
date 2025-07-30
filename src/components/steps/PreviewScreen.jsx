@@ -24,12 +24,12 @@ import kimchiAsset03 from '../../assets/flavor/kimchi/asset03.png';
 import kimchiPack from '../../assets/flavor/kimchi/pack.png';
 import kimchiProp from '../../assets/flavor/kimchi/prop.png';
 // เพิ่ม import สำหรับ cheesy-gochujang assets
-import cheesyHead from '../../assets/flavor/cheesy-gochujang/head.png';
-import cheesyAsset01 from '../../assets/flavor/cheesy-gochujang/asset01.png';
-import cheesyAsset02 from '../../assets/flavor/cheesy-gochujang/asset02.png';
-import cheesyAsset03 from '../../assets/flavor/cheesy-gochujang/asset03.png';
-import cheesyPack from '../../assets/flavor/cheesy-gochujang/pack.png';
-import cheesyProp from '../../assets/flavor/cheesy-gochujang/prop.png';
+import cheesyGochujangHead from '../../assets/flavor/cheesy-gochujang/head.png';
+import cheesyGochujangAsset01 from '../../assets/flavor/cheesy-gochujang/asset01.png';
+import cheesyGochujangAsset02 from '../../assets/flavor/cheesy-gochujang/asset02.png';
+import cheesyGochujangAsset03 from '../../assets/flavor/cheesy-gochujang/asset03.png';
+import cheesyGochujangPack from '../../assets/flavor/cheesy-gochujang/pack.png';
+import cheesyGochujangProp from '../../assets/flavor/cheesy-gochujang/prop.png';
 
 // ใช้ path สำหรับ mockup เพราะถูกเรียกใช้ด้วย link
 const mockupImage = '/mockup/mockup.png';
@@ -1031,7 +1031,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                     { src: kimchiAsset01, type: 'asset01', width: 100 },
                     { src: kimchiAsset02, type: 'asset02', width: 80 },
                     { src: kimchiAsset03, type: 'asset03', width: 90 },
-                    { src: kimchiPack, type: 'pack', width: 120 }
+                    { src: kimchiPack, type: 'pack', width: 120 },
+                    { src: kimchiProp, type: 'prop', width: 150 }
                 );
                 break;
             case 'cheesy-gochujang':
@@ -1040,7 +1041,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                     { src: cheesyGochujangAsset01, type: 'asset01', width: 100 },
                     { src: cheesyGochujangAsset02, type: 'asset02', width: 80 },
                     { src: cheesyGochujangAsset03, type: 'asset03', width: 90 },
-                    { src: cheesyGochujangPack, type: 'pack', width: 120 }
+                    { src: cheesyGochujangPack, type: 'pack', width: 120 },
+                    { src: cheesyGochujangProp, type: 'prop', width: 150 }
                 );
                 break;
             case 'secret':
