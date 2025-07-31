@@ -16,6 +16,7 @@ function App() {
   const [flavorFading, setFlavorFading] = useState(false);
   const [promptFadingIn, setPromptFadingIn] = useState(false);
   const [videoRef] = useState(() => React.createRef());
+  const [isFrontCamera] = useState(true);
 
   useEffect(() => {
     if (currentStep === 0) {
@@ -55,7 +56,7 @@ function App() {
       {currentStep === 1 && (
         <>
           {/* กล้องขนาดปกติ */}
-          <CameraView videoRef={videoRef} style={{
+          <CameraView videoRef={videoRef} animState={{ isFrontCamera }} style={{
             position: 'absolute',
             top: '50%',
             left: '50%',
@@ -75,7 +76,7 @@ function App() {
       {currentStep === 2 && (
         <>
           {/* กล้องขยายเต็มจอ */}
-          <CameraView videoRef={videoRef} style={{
+          <CameraView videoRef={videoRef} animState={{ isFrontCamera }} style={{
             position: 'fixed',
             top: 0,
             left: 0,
