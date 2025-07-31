@@ -16,7 +16,7 @@ function App() {
   const [flavorFading, setFlavorFading] = useState(false);
   const [promptFadingIn, setPromptFadingIn] = useState(false);
   const [videoRef] = useState(() => React.createRef());
-  const [isFrontCamera] = useState(true);
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
 
   useEffect(() => {
     if (currentStep === 0) {
@@ -96,7 +96,7 @@ function App() {
       )}
       {currentStep === 3 && <LoadingScreen />}
       {/* {currentStep === 4 && <CameraWithResult />} */}
-      {currentStep === 5 && <PreviewScreen flavor={flavor} imageUrl={imageUrl} onRestart={() => setCurrentStep(5)} />}
+      {currentStep === 5 && <PreviewScreen flavor={flavor} imageUrl={imageUrl} isFrontCamera={isFrontCamera} setIsFrontCamera={setIsFrontCamera} onRestart={() => setCurrentStep(5)} />}
     </>
   );
 }

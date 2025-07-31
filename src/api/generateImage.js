@@ -55,7 +55,7 @@ export async function generateImageWithDalle3({ prompt }) {
       prompt: fullPrompt,
       n: 1,
       size: "1024x1792", // เปลี่ยนเป็น 1024x1792 สำหรับ portrait mode
-      response_format: "url",
+      response_format: "b64_json", // เปลี่ยนจาก "url" เป็น "b64_json"
     }),
   });
 
@@ -65,7 +65,10 @@ export async function generateImageWithDalle3({ prompt }) {
   }
 
   const data = await response.json();
-  const imageUrl = data.data[0].url;
-  // return imageUrl ตรง ๆ (ไม่ fetch blob/dataURL)
-  return imageUrl;
+  const base64Data = data.data[0].b64_json;
+
+  // Convert base64 to data URL
+  const dataUrl = `data:image/png;base64,${base64Data}`;
+  console.log("✅ Generated image converted to data URL from base64");
+  return dataUrl;
 }

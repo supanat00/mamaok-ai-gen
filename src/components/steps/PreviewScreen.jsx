@@ -45,12 +45,11 @@ import switchCameraIcon from '../../assets/icons/switch-camera.webp';
 // เพิ่ม import สำหรับ PreviewModal
 import PreviewModal from './PreviewModal';
 
-const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
+const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRestart }) => {
     const videoRef = useRef(null);
     const [cameraReady, setCameraReady] = React.useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
     // เพิ่ม state สำหรับระบบถ่ายภาพ
-    const [isFrontCamera, setIsFrontCamera] = useState(true);
     const [isVideoMode, setIsVideoMode] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [modePressed, setModePressed] = useState(false);
@@ -77,6 +76,14 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
     const videoEncoderRef = useRef(null);
     const audioEncoderRef = useRef(null);
     const isRecordingRef = useRef(false);
+
+    // Cleanup blob URLs when component unmounts
+    useEffect(() => {
+        return () => {
+            // No cleanup needed for data URLs
+            // Blob URLs would need: if (imageUrl && imageUrl.startsWith('blob:')) { URL.revokeObjectURL(imageUrl); }
+        };
+    }, [imageUrl]);
 
     // Reset imageLoaded when imageUrl changes
     useEffect(() => {
@@ -167,7 +174,6 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                             videoRef.current.srcObject = stream;
                             setCameraReady(true);
                         }
-                        setIsFrontCamera(true); // กลับไปใช้กล้องหน้า
                     } catch (fallbackError) {
                         console.error('❌ Fallback camera failed:', fallbackError);
                     }
@@ -388,45 +394,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         // วาด background
                         ctx.drawImage(bgImg, 0, 0, 720, 1280);
 
-                        // วาดเส้นกรอบ (ก่อน video แต่อยู่ด้านหลัง)
-                        ctx.save();
-                        if (flavor === 'secret') {
-                            ctx.strokeStyle = '#e91e63';
-                            ctx.lineWidth = 1;
-                            const frameWidth = Math.min(1280 * 0.95, 720 * 1.2);
-                            const frameHeight = Math.min(1280 * 1.2, 720 * 1.6);
-                            const centerX = 720 / 2;
-                            const centerY = 1280 / 2;
-                            for (let i = 0; i < 12; i++) {
-                                ctx.save();
-                                ctx.translate(centerX, centerY);
-                                ctx.rotate((i * 30) * Math.PI / 180);
-                                const scale = Math.min(frameWidth, frameHeight) / 100;
-                                ctx.scale(scale, scale);
-                                ctx.beginPath();
-                                ctx.roundRect(38.5 - 50, -11 - 50, 23, 54, 11.5);
-                                ctx.stroke();
-                                ctx.restore();
-                            }
-                        } else {
-                            ctx.strokeStyle = '#ff69b4';
-                            ctx.lineWidth = 2;
-                            const frameWidth = Math.min(1280 * 0.65, 720 * 0.75);
-                            const frameHeight = Math.min(1280 * 1.1, 720 * 1.3);
-                            const centerX = 720 / 2;
-                            const centerY = 1280 / 2;
-                            const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
-                            ctx.beginPath();
-                            ctx.roundRect(
-                                centerX - frameWidth / 2,
-                                centerY - frameHeight / 2,
-                                frameWidth,
-                                frameHeight,
-                                borderRadius
-                            );
-                            ctx.stroke();
-                        }
-                        ctx.restore();
+
 
                         // วาด camera frame และ video
                         const video = videoRef.current;
@@ -436,8 +404,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                             let cameraWidth, cameraHeight, cameraX, cameraY;
 
                             if (flavor === 'secret') {
-                                cameraWidth = Math.min(1280 * 0.95, 720 * 1.2);
-                                cameraHeight = Math.min(1280 * 1.2, 720 * 1.6);
+                                cameraWidth = Math.min(1280 * 0.88, 720 * 1.12); // เพิ่มขึ้นนิดหน่อย
+                                cameraHeight = Math.min(1280 * 1.12, 720 * 1.52); // เพิ่มขึ้นนิดหน่อย
                                 cameraX = (720 - cameraWidth) / 2;
                                 cameraY = (1280 - cameraHeight) / 2;
                             } else {
@@ -446,6 +414,9 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                                 cameraX = (720 - cameraWidth) / 2;
                                 cameraY = (1280 - cameraHeight) / 2;
                             }
+
+                            // วาดเส้นสีชมพูสำหรับ flavors อื่นๆ (ไม่ใช่ secret)
+
 
                             let videoWidth = cameraWidth;
                             let videoHeight = videoWidth / videoAspectRatio;
@@ -460,34 +431,46 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                             ctx.save();
                             if (flavor === 'secret') {
                                 ctx.beginPath();
-                                const frameWidth = Math.min(1280 * 0.95, 720 * 1.2);
-                                const frameHeight = Math.min(1280 * 1.2, 720 * 1.6);
+                                // ใช้ขนาดเดียวกับ cameraWidth และ cameraHeight
                                 const centerX = 720 / 2;
                                 const centerY = 1280 / 2;
-                                const radius = Math.min(frameWidth, frameHeight) / 2 * 0.4;
+                                const radius = Math.min(cameraWidth, cameraHeight) / 2 * 0.4;
                                 ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
                                 for (let i = 0; i < 12; i++) {
                                     ctx.save();
                                     ctx.translate(centerX, centerY);
                                     ctx.rotate((i * 30) * Math.PI / 180);
-                                    const scale = Math.min(frameWidth, frameHeight) / 100;
+                                    const scale = Math.min(cameraWidth, cameraHeight) / 100;
                                     ctx.scale(scale, scale);
                                     ctx.roundRect(38.5 - 50, -11 - 50, 23, 54, 11.5);
                                     ctx.restore();
                                 }
+                                ctx.stroke();
+
+                                // วาดเส้นสีชมพูสำหรับรส secret
+                                ctx.save();
+                                ctx.strokeStyle = '#ff69b4';
+                                ctx.lineWidth = 5;
+                                ctx.stroke();
+                                ctx.restore();
                             } else {
-                                const frameWidth = Math.min(1280 * 0.65, 720 * 0.75);
-                                const frameHeight = Math.min(1280 * 1.1, 720 * 1.3);
+                                // ใช้ขนาดเดียวกับ cameraWidth และ cameraHeight
                                 const centerX = 720 / 2;
                                 const centerY = 1280 / 2;
-                                const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
+                                const borderRadius = Math.min(cameraWidth, cameraHeight) * 0.08;
+                                ctx.beginPath();
                                 ctx.roundRect(
-                                    centerX - frameWidth / 2,
-                                    centerY - frameHeight / 2,
-                                    frameWidth,
-                                    frameHeight,
+                                    centerX - cameraWidth / 2,
+                                    centerY - cameraHeight / 2,
+                                    cameraWidth,
+                                    cameraHeight,
                                     borderRadius
                                 );
+                                ctx.save();
+                                ctx.strokeStyle = '#ff69b4';
+                                ctx.lineWidth = 4;
+                                ctx.stroke();
+                                ctx.restore();
                             }
                             ctx.clip();
 
@@ -522,7 +505,11 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 backgroundImg.onload = () => {
                     processFrame();
                 };
-                backgroundImg.src = '/mockup/mockup.png';
+                backgroundImg.onerror = () => {
+                    console.error('ไม่สามารถโหลดภาพที่ generate ได้ ใช้ mockup แทน');
+                    backgroundImg.src = '/mockup/mockup.png';
+                };
+                backgroundImg.src = imageUrl || '/mockup/mockup.png';
             });
 
             return true;
@@ -545,154 +532,96 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
 
         try {
             // 1. เตรียม canvas และ context
-            const width = 720;
-            const height = 1280;
-            const fps = 30;
-            const durationLimit = 30; // seconds
+            let videoWidth = 720;
+            let videoHeight = 1280;
+
+            // ตรวจสอบและบังคับให้เป็นเลขคู่
+            if (videoWidth % 2 !== 0) videoWidth++;
+            if (videoHeight % 2 !== 0) videoHeight++;
+
             const recordingCanvas = document.createElement('canvas');
-            recordingCanvas.width = width;
-            recordingCanvas.height = height;
+            recordingCanvas.width = videoWidth;
+            recordingCanvas.height = videoHeight;
             const ctx = recordingCanvas.getContext('2d');
             console.log("✅ Recording canvas created for Muxer");
 
             // 2. เตรียม mp4-muxer
-            const muxer = new Muxer({
+            muxerRef.current = new Muxer({
                 target: new ArrayBufferTarget(),
-                video: {
-                    codec: 'avc',
-                    width,
-                    height,
-                    frameRate: fps,
-                },
-                audio: { codec: 'aac', sampleRate: 48000, numberOfChannels: 1 },
+                video: { codec: 'avc', width: videoWidth, height: videoHeight },
+                audio: { codec: 'aac', sampleRate: 44100, numberOfChannels: 1 },
+                fastStart: 'in-memory',
             });
-            muxerRef.current = muxer;
-            console.log("✅ Muxer created");
 
             // 3. เตรียม VideoEncoder
-            const videoEncoder = new window.VideoEncoder({
-                output: (chunk) => {
-                    try {
-                        muxer.addVideoChunk(chunk);
-                    } catch (error) {
-                        console.error("❌ Error adding video chunk:", error);
-                    }
-                },
-                error: (e) => {
-                    console.error('❌ VideoEncoder error:', e);
-                    // Fallback to MediaRecorder on error
-                    console.log("🔄 Falling back to MediaRecorder due to VideoEncoder error");
-                    isRecordingRef.current = false;
-                    startRecordingWithMediaRecorder();
-                },
+            videoEncoderRef.current = new VideoEncoder({
+                output: (chunk, meta) => muxerRef.current.addVideoChunk(chunk, meta),
+                error: (e) => console.error('VideoEncoder error:', e),
+            });
+            await videoEncoderRef.current.configure({
+                codec: 'avc1.42001f',
+                width: videoWidth,
+                height: videoHeight,
+                bitrate: 3_000_000,
             });
 
-            try {
-                await videoEncoder.configure({
-                    codec: 'avc1.42E01E',
-                    width,
-                    height,
-                    framerate: fps,
-                });
-                videoEncoderRef.current = videoEncoder;
-                console.log("✅ VideoEncoder configured");
-            } catch (error) {
-                console.error("❌ VideoEncoder configuration failed:", error);
-                throw new Error("VideoEncoder configuration failed");
-            }
+            // 4. เตรียม AudioEncoder
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            audioEncoderRef.current = new AudioEncoder({
+                output: (chunk, meta) => muxerRef.current.addAudioChunk(chunk, meta),
+                error: (e) => console.error('AudioEncoder error:', e),
+            });
+            await audioEncoderRef.current.configure({
+                codec: 'mp4a.40.2',
+                sampleRate: audioContext.sampleRate,
+                numberOfChannels: 1,
+                bitrate: 96000,
+            });
 
-            // 4. เตรียม AudioEncoder (optional, fallback to silent if denied)
-            let audioEncoder = null;
-            let audioTrack = null;
-            let audioStream = null;
-            let audioContext = null;
-            let audioSource = null;
-            let audioProcessor = null;
-            let audioSampleRate = 48000;
-            let audioChannels = 1;
+            // 5. สร้าง AudioData สำหรับ silence
+            const audioBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 1, audioContext.sampleRate);
+            const audioData = new AudioData({
+                timestamp: 0,
+                data: audioBuffer.getChannelData(0),
+                numberOfFrames: audioBuffer.length,
+                numberOfChannels: 1,
+                sampleRate: audioContext.sampleRate,
+                format: 'f32-planar'
+            });
+            audioEncoderRef.current.encode(audioData);
+            audioData.close();
 
-            try {
-                // ใช้ stream เดียวกันกับกล้อง (ไม่ขอสิทธิ์ใหม่)
-                if (currentStream) {
-                    const audioTracks = currentStream.getAudioTracks();
-                    if (audioTracks.length > 0) {
-                        audioTrack = audioTracks[0];
-                        audioStream = new MediaStream([audioTrack]);
-                    } else {
-                        // ถ้าไม่มี audio track ใน stream เดิม ให้ขอใหม่
-                        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        audioTrack = audioStream.getAudioTracks()[0];
-                    }
-                } else {
-                    // ถ้าไม่มี stream เดิม ให้ขอใหม่
-                    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    audioTrack = audioStream.getAudioTracks()[0];
-                }
-
-                audioContext = new window.AudioContext({ sampleRate: audioSampleRate });
-                audioSource = audioContext.createMediaStreamSource(audioStream);
-                audioProcessor = audioContext.createScriptProcessor(4096, audioChannels, audioChannels);
-                audioSource.connect(audioProcessor);
-                audioProcessor.connect(audioContext.destination);
-
-                audioEncoder = new window.AudioEncoder({
-                    output: (chunk) => {
-                        try {
-                            muxer.addAudioChunk(chunk);
-                        } catch (error) {
-                            console.error("❌ Error adding audio chunk:", error);
-                        }
-                    },
-                    error: (e) => console.error('❌ AudioEncoder error:', e),
-                });
-
-                await audioEncoder.configure({
-                    codec: 'mp4a.40.2',
-                    sampleRate: audioSampleRate,
-                    numberOfChannels: audioChannels,
-                });
-                audioEncoderRef.current = audioEncoder;
-                console.log("✅ AudioEncoder configured");
-            } catch (audioError) {
-                console.warn("⚠️ Audio setup failed, recording without audio:", audioError);
-                // Continue without audio
-            }
-
-            // 5. โหลด background image และ assets
+            // 6. เตรียม background image และ assets
             const backgroundImg = new Image();
+            backgroundImg.crossOrigin = 'anonymous';
+
+            // โหลด assets
             const assets = getAllAssets(flavor);
             const assetImages = assets.map(asset => {
                 return new Promise((resolve) => {
                     const img = new Image();
-                    img.onload = () => resolve({ ...asset, img });
+                    img.onload = () => {
+                        asset.img = img;
+                        resolve(asset);
+                    };
                     img.src = asset.src;
                 });
-            });
-
-            console.log("🖼️ Loading background and assets for Muxer...");
-            await new Promise((resolve) => {
-                backgroundImg.onload = resolve;
-                backgroundImg.src = '/mockup/mockup.png';
             });
             const loadedAssets = await Promise.all(assetImages);
             console.log("✅ All assets loaded for Muxer");
 
-            // 6. วาดและ encode frame loop
-            let startTime = null;
+            // 7. วาดและ encode frame loop
+            let recordingStartTime = null;
             isRecordingRef.current = true;
             console.log("🎬 Starting Muxer recording loop");
 
-            async function processFrame(now) {
-                if (!startTime) startTime = now;
-                const elapsed = (now - startTime) / 1000;
-                if (elapsed > durationLimit || !isRecordingRef.current) {
-                    isRecordingRef.current = false;
-                    return;
-                }
+            const processFrame = (currentTime) => {
+                if (!isRecordingRef.current) return;
+                if (recordingStartTime === null) recordingStartTime = currentTime;
 
                 try {
                     // 1. วาด background image
-                    ctx.drawImage(backgroundImg, 0, 0, width, height);
+                    ctx.drawImage(backgroundImg, 0, 0, videoWidth, videoHeight);
 
                     // 2. วาด camera frame และ video
                     const video = videoRef.current;
@@ -701,108 +630,117 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         let cameraWidth, cameraHeight, cameraX, cameraY;
 
                         if (flavor === 'secret') {
-                            cameraWidth = Math.min(height * 0.95, width * 1.2);
-                            cameraHeight = Math.min(height * 1.2, width * 1.6);
-                            cameraX = (width - cameraWidth) / 2;
-                            cameraY = (height - cameraHeight) / 2;
+                            cameraWidth = Math.min(videoHeight * 0.88, videoWidth * 1.12);
+                            cameraHeight = Math.min(videoHeight * 1.12, videoWidth * 1.52);
+                            cameraX = (videoWidth - cameraWidth) / 2;
+                            cameraY = (videoHeight - cameraHeight) / 2;
                         } else {
-                            cameraWidth = Math.min(height * 0.65, width * 0.75);
-                            cameraHeight = Math.min(height * 1.1, width * 1.3);
-                            cameraX = (width - cameraWidth) / 2;
-                            cameraY = (height - cameraHeight) / 2;
+                            cameraWidth = Math.min(videoHeight * 0.65, videoWidth * 0.75);
+                            cameraHeight = Math.min(videoHeight * 1.1, videoWidth * 1.3);
+                            cameraX = (videoWidth - cameraWidth) / 2;
+                            cameraY = (videoHeight - cameraHeight) / 2;
                         }
 
-                        let videoWidth = cameraWidth;
-                        let videoHeight = videoWidth / videoAspectRatio;
-                        if (videoHeight < cameraHeight) {
-                            videoHeight = cameraHeight;
-                            videoWidth = videoHeight * videoAspectRatio;
+                        let videoWidth2 = cameraWidth;
+                        let videoHeight2 = videoWidth2 / videoAspectRatio;
+                        if (videoHeight2 < cameraHeight) {
+                            videoHeight2 = cameraHeight;
+                            videoWidth2 = videoHeight2 * videoAspectRatio;
                         }
-                        const videoX = cameraX + (cameraWidth - videoWidth) / 2;
-                        const videoY = cameraY + (cameraHeight - videoHeight) / 2;
+                        const videoX = cameraX + (cameraWidth - videoWidth2) / 2;
+                        const videoY = cameraY + (cameraHeight - videoHeight2) / 2;
 
                         // วาด camera frame
                         ctx.save();
                         if (flavor === 'secret') {
                             ctx.beginPath();
-                            const frameWidth = Math.min(height * 0.95, width * 1.2);
-                            const frameHeight = Math.min(height * 1.2, width * 1.6);
-                            const centerX = width / 2;
-                            const centerY = height / 2;
-                            const radius = Math.min(frameWidth, frameHeight) / 2 * 0.4;
+                            const centerX = videoWidth / 2;
+                            const centerY = videoHeight / 2;
+                            const radius = Math.min(cameraWidth, cameraHeight) / 2 * 0.4;
                             ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
                             for (let i = 0; i < 12; i++) {
                                 ctx.save();
                                 ctx.translate(centerX, centerY);
                                 ctx.rotate((i * 30) * Math.PI / 180);
-                                const scale = Math.min(frameWidth, frameHeight) / 100;
+                                const scale = Math.min(cameraWidth, cameraHeight) / 100;
                                 ctx.scale(scale, scale);
                                 ctx.roundRect(38.5 - 50, -11 - 50, 23, 54, 11.5);
                                 ctx.restore();
                             }
+                            ctx.stroke();
+
+                            // วาดเส้นสีชมพูสำหรับรส secret
+                            ctx.save();
+                            ctx.strokeStyle = '#ff69b4';
+                            ctx.lineWidth = 5;
+                            ctx.stroke();
+                            ctx.restore();
                         } else {
-                            const frameWidth = Math.min(height * 0.65, width * 0.75);
-                            const frameHeight = Math.min(height * 1.1, width * 1.3);
-                            const centerX = width / 2;
-                            const centerY = height / 2;
-                            const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
+                            // กรอบสี่เหลี่ยมมีขอบมนสำหรับ flavors อื่นๆ (ตามโค้ด UI)
+                            const centerX = videoWidth / 2;
+                            const centerY = videoHeight / 2;
+                            const borderRadius = Math.min(cameraWidth, cameraHeight) * 0.08;
+                            ctx.beginPath();
                             ctx.roundRect(
-                                centerX - frameWidth / 2,
-                                centerY - frameHeight / 2,
-                                frameWidth,
-                                frameHeight,
+                                centerX - cameraWidth / 2,
+                                centerY - cameraHeight / 2,
+                                cameraWidth,
+                                cameraHeight,
                                 borderRadius
                             );
+                            ctx.save();
+                            ctx.strokeStyle = '#ff69b4';
+                            ctx.lineWidth = 4;
+                            ctx.stroke();
+                            ctx.restore();
                         }
                         ctx.clip();
 
                         // วาด video
                         if (isFrontCamera) {
                             ctx.save();
-                            ctx.translate(videoX + videoWidth, videoY);
+                            ctx.translate(videoX + videoWidth2, videoY);
                             ctx.scale(-1, 1);
-                            ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+                            ctx.drawImage(video, 0, 0, videoWidth2, videoHeight2);
                             ctx.restore();
                         } else {
-                            ctx.drawImage(video, videoX, videoY, videoWidth, videoHeight);
+                            ctx.drawImage(video, videoX, videoY, videoWidth2, videoHeight2);
                         }
                     }
 
                     // 3. วาด assets
                     loadedAssets.forEach(asset => {
-                        const position = calculateAssetPosition(asset, width, height);
+                        const position = calculateAssetPosition(asset, videoWidth, videoHeight);
                         ctx.drawImage(asset.img, position.x, position.y, position.width, position.height);
                     });
 
                     // 4. Encode frame
-                    const imageData = ctx.getImageData(0, 0, width, height);
-                    const videoFrame = new VideoFrame(imageData, {
-                        timestamp: elapsed * 1000000, // microseconds
-                        duration: 1000000 / fps,
-                    });
-
-                    try {
-                        await videoEncoder.encode(videoFrame);
+                    if (videoEncoderRef.current?.state === 'configured') {
+                        const elapsedTimeMs = currentTime - recordingStartTime;
+                        const timestamp = Math.round(elapsedTimeMs * 1000);
+                        const videoFrame = new VideoFrame(recordingCanvas, { timestamp });
+                        videoEncoderRef.current.encode(videoFrame);
                         videoFrame.close();
-                    } catch (encodeError) {
-                        console.error("❌ Video encoding error:", encodeError);
-                        videoFrame.close();
-                        throw encodeError;
                     }
 
-                    // 5. เรียก frame ถัดไป
                     animationFrameIdRef.current = requestAnimationFrame(processFrame);
                 } catch (frameError) {
                     console.error("❌ Frame processing error:", frameError);
-                    // Fallback to MediaRecorder on critical error
-                    console.log("🔄 Falling back to MediaRecorder due to frame processing error");
                     isRecordingRef.current = false;
                     startRecordingWithMediaRecorder();
                 }
-            }
+            };
 
             // เริ่มการวาด frame
-            processFrame(performance.now());
+            backgroundImg.onload = () => {
+                processFrame(performance.now());
+            };
+            backgroundImg.onerror = () => {
+                console.error('ไม่สามารถโหลดภาพที่ generate ได้ ใช้ mockup แทน');
+                backgroundImg.src = '/mockup/mockup.png';
+            };
+            backgroundImg.src = imageUrl || '/mockup/mockup.png';
+
             return true;
         } catch (error) {
             console.error("❌ Muxer setup failed:", error);
@@ -965,9 +903,9 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                             let cameraWidth, cameraHeight, cameraX, cameraY;
 
                             if (flavor === 'secret') {
-                                // กรอบดอกไม้ 12 กลีบสำหรับ secret flavor
-                                cameraWidth = Math.min(outputHeight * 0.95, outputWidth * 1.2);
-                                cameraHeight = Math.min(outputHeight * 1.2, outputWidth * 1.6);
+                                // กรอบดอกไม้ 12 กลีบสำหรับ secret flavor (ตามโค้ด UI)
+                                cameraWidth = Math.min(outputHeight * 0.88, outputWidth * 1.12); // เพิ่มขึ้นนิดหน่อย
+                                cameraHeight = Math.min(outputHeight * 1.12, outputWidth * 1.52); // เพิ่มขึ้นนิดหน่อย
                                 cameraX = (outputWidth - cameraWidth) / 2;
                                 cameraY = (outputHeight - cameraHeight) / 2;
                             } else {
@@ -997,8 +935,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                                 ctx.beginPath();
 
                                 // ใช้ขนาดและตำแหน่งเดียวกับเส้นกรอบ
-                                const frameWidth = Math.min(outputHeight * 0.95, outputWidth * 1.2);
-                                const frameHeight = Math.min(outputHeight * 1.2, outputWidth * 1.6);
+                                const frameWidth = Math.min(outputHeight * 0.88, outputWidth * 1.12); // เพิ่มขึ้นนิดหน่อย
+                                const frameHeight = Math.min(outputHeight * 1.12, outputWidth * 1.52); // เพิ่มขึ้นนิดหน่อย
                                 const centerX = outputWidth / 2;
                                 const centerY = outputHeight / 2;
 
@@ -1069,12 +1007,12 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
 
                 // จัดการ error กรณีภาพโหลดไม่สำเร็จ
                 backgroundImage.onerror = () => {
-                    console.error('ไม่สามารถโหลดภาพพื้นหลังได้');
-                    alert('ไม่สามารถโหลดภาพพื้นหลังได้ กรุณาลองใหม่อีกครั้ง');
+                    console.error('ไม่สามารถโหลดภาพที่ generate ได้ ใช้ mockup แทน');
+                    backgroundImage.src = '/mockup/mockup.png';
                 };
 
-                // โหลดพื้นหลัง - ใช้ mockup
-                backgroundImage.src = '/mockup/mockup.png';
+                // โหลดพื้นหลัง - ใช้ภาพที่ generate หรือ mockup
+                backgroundImage.src = imageUrl || '/mockup/mockup.png';
             });
         } catch (error) {
             console.error('เกิดข้อผิดพลาดในการถ่ายภาพ:', error);
@@ -1089,8 +1027,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
 
         if (flavor === 'secret') {
             // กรอบดอกไม้ 12 กลีบสำหรับ secret flavor (ตามโค้ด UI)
-            const frameWidth = Math.min(canvasHeight * 0.95, canvasWidth * 1.2);
-            const frameHeight = Math.min(canvasHeight * 1.2, canvasWidth * 1.6);
+            const frameWidth = Math.min(canvasHeight * 0.88, canvasWidth * 1.12); // ค่ากลางระหว่างเก่าและใหม่
+            const frameHeight = Math.min(canvasHeight * 1.12, canvasWidth * 1.52); // ค่ากลางระหว่างเก่าและใหม่
 
             ctx.save();
             ctx.strokeStyle = '#e91e63';
@@ -1116,13 +1054,14 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
             ctx.restore();
         } else {
             // กรอบสี่เหลี่ยมมีขอบมนสำหรับ flavors อื่นๆ (ตามโค้ด UI)
+            // ใช้ขนาดเดียวกับส่วนเว้า
             const frameWidth = Math.min(canvasHeight * 0.65, canvasWidth * 0.75);
             const frameHeight = Math.min(canvasHeight * 1.1, canvasWidth * 1.3);
             const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
 
             ctx.save();
             ctx.strokeStyle = '#ff69b4';
-            ctx.lineWidth = 2; // ลดขนาดเส้น
+            ctx.lineWidth = 4; // เพิ่มความหนา
 
             ctx.beginPath();
             ctx.roundRect(
@@ -1207,6 +1146,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 break;
             case 'secret':
                 assets.push(
+                    { src: mamaLogo, type: 'mama-logo', width: 120 },
                     { src: asset01, type: 'asset01', width: 345 },
                     { src: asset02, type: 'asset02', width: 540 },
                     { src: asset03, type: 'asset03', width: 280 },
@@ -1251,6 +1191,13 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
         if (flavor === 'secret') {
             // ตำแหน่ง asset สำหรับ secret flavor (ตรงกับหน้า UI เป๊ะๆ)
             switch (asset.type) {
+                case 'mama-logo':
+                    return {
+                        x: centerX - 60, // กลางจอ
+                        y: 50, // ด้านบน
+                        width: 120,
+                        height: 120
+                    };
                 case 'pack':
                     return {
                         x: centerX - (cameraWidth * 0.737) / 2,
