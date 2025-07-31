@@ -3,7 +3,6 @@ import SplashScreen from './components/steps/SplashScreen';
 import CameraWithFlavorSelect from './components/steps/CameraWithFlavorSelect';
 import PromptInput from './components/steps/PromptInput';
 import LoadingScreen from './components/steps/LoadingScreen';
-import CameraWithResult from './components/steps/CameraWithResult';
 import PreviewScreen from './components/steps/PreviewScreen';
 import CameraView from './components/CameraView';
 
@@ -95,7 +94,7 @@ function App() {
         </>
       )}
       {currentStep === 3 && <LoadingScreen />}
-      {currentStep === 4 && <CameraWithResult />}
+      {/* {currentStep === 4 && <CameraWithResult />} */}
       {currentStep === 5 && <PreviewScreen flavor={flavor} imageUrl={imageUrl} onRestart={() => setCurrentStep(5)} />}
     </>
   );

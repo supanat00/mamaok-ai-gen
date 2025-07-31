@@ -34,9 +34,16 @@ export async function generateImageWithStability({ prompt }) {
     reader.readAsDataURL(blob);
   });
 }
+*/
 
 export async function generateImageWithDalle3({ prompt }) {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+  // สร้าง prompt ที่รวมกับ prompt ที่กำหนดไว้
+  const fullPrompt =
+    prompt +
+    ", seamless pattern, colorful, modern, vector, small elements, high density, scattered, tightly packed, distributed evenly, no symmetry, no characters, no cartoon, no text, high quality";
+
   const response = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
@@ -45,7 +52,7 @@ export async function generateImageWithDalle3({ prompt }) {
     },
     body: JSON.stringify({
       model: "dall-e-3",
-      prompt,
+      prompt: fullPrompt,
       n: 1,
       size: "1024x1792", // เปลี่ยนเป็น 1024x1792 สำหรับ portrait mode
       response_format: "url",
@@ -61,14 +68,4 @@ export async function generateImageWithDalle3({ prompt }) {
   const imageUrl = data.data[0].url;
   // return imageUrl ตรง ๆ (ไม่ fetch blob/dataURL)
   return imageUrl;
-}
-*/
-
-// ฟังก์ชันจำลองสำหรับเดโม - ง่ายๆ ไม่มีปัญหา encoding
-export async function generateImageWithDalle3() {
-  // จำลองการ delay 2 วินาที (สำหรับเทส)
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
-  // ส่งคืน mockup image ที่มีอยู่แล้ว (ไม่ต้อง generate ใหม่)
-  return "/mockup/mockup.png";
 }

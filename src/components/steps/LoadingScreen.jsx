@@ -61,28 +61,58 @@ const LoadingScreen = () => {
                     zIndex: 10,
                 }}
             />
-            {/* ไอคอน loading หมุนกลางจอ */}
+            {/* Loading overlay */}
             <div style={{
                 position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -60%)',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                background: 'rgba(0, 0, 0, 0.6)',
                 zIndex: 2,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
+                justifyContent: 'center',
             }}>
+                {/* Enhanced loading icon */}
                 <div style={{
-                    width: 64,
-                    height: 64,
-                    border: '6px solid #fff',
-                    borderTop: '6px solid #ff9100',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                }} />
-                <img src={generatingText} alt="generating" style={{ width: 160, marginTop: 24 }} />
+                    position: 'relative',
+                    width: 80,
+                    height: 80,
+                    marginBottom: 32,
+                }}>
+                    {/* Outer ring */}
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        border: '4px solid rgba(255, 255, 255, 0.2)',
+                        borderTop: '4px solid #ff9100',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                    }} />
+                    {/* Inner ring */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '25%',
+                        left: '25%',
+                        width: '50%',
+                        height: '50%',
+                        border: '3px solid rgba(255, 255, 255, 0.3)',
+                        borderTop: '3px solid #e91e63',
+                        borderRadius: '50%',
+                        animation: 'spin 1.5s linear infinite reverse',
+                    }} />
+                </div>
+
+                {/* Original generating image */}
+                <img src={generatingText} alt="generating" style={{ width: 160 }} />
             </div>
-            {/* CSS keyframes ในตัว */}
+
+            {/* CSS keyframes */}
             <style>{`
                 @keyframes spin {
                     0% { transform: rotate(0deg); }

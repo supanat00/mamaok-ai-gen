@@ -2,6 +2,9 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import '../../App.css';
 import mamaLogo from '../../assets/logos/mama.png';
 
+// เพิ่ม import สำหรับ utils
+import { detectBrowserAndPlatform } from '../../utils/deviceUtils';
+
 // เพิ่ม import สำหรับ Muxer (Chrome/Android)
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import pack from '../../assets/flavor/secret/pack.png';
@@ -85,6 +88,25 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
         }
     }, [imageUrl]);
 
+    // Add lazy loading effect for generated image
+    const [imageLoading, setImageLoading] = useState(true);
+
+    useEffect(() => {
+        if (imageUrl) {
+            setImageLoading(true);
+
+            const img = new Image();
+            img.onload = () => {
+                setImageLoading(false);
+                setImageLoaded(true);
+            };
+            img.onerror = () => {
+                setImageLoading(false);
+            };
+            img.src = imageUrl;
+        }
+    }, [imageUrl]);
+
     useEffect(() => {
         async function checkCameraCapabilities() {
             try {
@@ -102,6 +124,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
         let stream;
         async function startCamera() {
             try {
+                console.log('📱 Camera mode:', isFrontCamera ? 'front' : 'back');
+
                 // หยุด stream เดิมก่อน
                 if (currentStream) {
                     currentStream.getTracks().forEach(track => track.stop());
@@ -116,14 +140,17 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 };
 
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
+                console.log('✅ Camera ready');
                 setCurrentStream(stream);
 
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
                     setCameraReady(true);
+                } else {
+                    console.error('❌ Video ref not available');
                 }
             } catch (error) {
-                console.log('ไม่สามารถเข้าถึงกล้องได้:', error);
+                console.error('❌ Camera error:', error);
                 // ถ้าไม่สามารถใช้กล้องที่เลือกได้ ให้ลองใช้กล้องหน้า
                 if (!isFrontCamera) {
                     try {
@@ -142,7 +169,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         }
                         setIsFrontCamera(true); // กลับไปใช้กล้องหน้า
                     } catch (fallbackError) {
-                        console.log('ไม่สามารถเข้าถึงกล้องได้เลย:', fallbackError);
+                        console.error('❌ Fallback camera failed:', fallbackError);
                     }
                 }
             }
@@ -153,33 +180,32 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 stream.getTracks().forEach(track => track.stop());
             }
         };
-    }, [isFrontCamera]);
+    }, [isFrontCamera]); // ลบ currentStream ออกจาก dependency
+
+
 
     // ฟังก์ชันสำหรับถ่ายภาพ/วิดีโอ
-    // ฟังก์ชันตรวจสอบ platform
-    const isAndroid = () => /Android/.test(navigator.userAgent);
-    const isChrome = () => /Chrome/.test(navigator.userAgent) && !/Safari/.test(navigator.userAgent);
-    const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isSafari = () => /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+
 
     // ฟังก์ชันสำหรับเริ่มอัดวิดีโอ
     const startVideoRecording = useCallback(async () => {
-        console.log("ACTION: Start Video Recording");
+        console.log("🎬 ACTION: Start Video Recording");
 
         try {
             if (!videoRef.current) {
-                console.error("No video ref available");
+                console.error("❌ No video ref available");
                 alert("เกิดข้อผิดพลาด: ไม่สามารถเริ่มอัดวิดีโอได้");
                 return false;
             }
 
-            console.log("Video ref available, creating recording canvas");
+            console.log("✅ Video ref available, creating recording canvas");
 
-            // ตรวจสอบ platform
-            const androidChrome = isAndroid() && isChrome();
-            const iosSafari = isIOS() || isSafari();
+            // ใช้ utils สำหรับตรวจสอบ platform
+            const { isIOS: isIOSDevice, isSafari: isSafariBrowser, isChrome: isChromeBrowser, isAndroid: isAndroidDevice } = detectBrowserAndPlatform();
+            const androidChrome = isAndroidDevice && isChromeBrowser;
+            const iosSafari = isIOSDevice || isSafariBrowser;
 
-            console.log(`Platform detection: Android/Chrome=${androidChrome}, iOS/Safari=${iosSafari}`);
+            console.log(`📱 Platform detection (utils): Android/Chrome=${androidChrome}, iOS/Safari=${iosSafari}`);
 
             if (androidChrome) {
                 // ใช้ Muxer สำหรับ Chrome/Android
@@ -191,20 +217,332 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 return startRecordingWithMediaRecorder();
             }
         } catch (error) {
-            console.error("Failed to start video recording:", error);
+            console.error("❌ Failed to start video recording:", error);
             alert("ไม่สามารถเริ่มอัดวิดีโอได้");
             return false;
         }
     }, [isRecording]);
 
+    // ฟังก์ชันสำหรับใช้ MediaRecorder (iOS/Safari และอื่นๆ)
+    const startRecordingWithMediaRecorder = useCallback(async () => {
+        console.log("🎥 Using MediaRecorder for iOS/Safari");
+
+        try {
+            // สร้าง canvas สำหรับอัดวิดีโอ
+            const recordingCanvas = document.createElement('canvas');
+            recordingCanvas.width = 720;
+            recordingCanvas.height = 1280;
+            const ctx = recordingCanvas.getContext('2d');
+            console.log("✅ Recording canvas created");
+
+            // สร้าง video stream จาก canvas
+            const videoStream = recordingCanvas.captureStream(30);
+            console.log("✅ Video stream captured from canvas");
+
+            // เพิ่ม audio stream (ใช้ stream เดียวกันกับกล้อง)
+            let audioStream = null;
+            let audioTrack = null;
+            try {
+                if (currentStream) {
+                    const audioTracks = currentStream.getAudioTracks();
+                    if (audioTracks.length > 0) {
+                        audioTrack = audioTracks[0];
+                        audioStream = new MediaStream([audioTrack]);
+                        audioTrackRef.current = audioTrack;
+                        console.log("✅ Using existing audio track");
+                    } else {
+                        // ถ้าไม่มี audio track ใน stream เดิม ให้ขอใหม่
+                        console.log("🔄 Requesting new audio stream...");
+                        audioStream = await navigator.mediaDevices.getUserMedia({
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            }
+                        });
+                        audioTrack = audioStream.getAudioTracks()[0];
+                        audioTrackRef.current = audioTrack;
+                        console.log("✅ New audio stream obtained");
+                    }
+                } else {
+                    // ถ้าไม่มี stream เดิม ให้ขอใหม่
+                    console.log("🔄 Requesting new audio stream...");
+                    audioStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    audioTrack = audioStream.getAudioTracks()[0];
+                    audioTrackRef.current = audioTrack;
+                    console.log("✅ New audio stream obtained");
+                }
+            } catch (audioError) {
+                console.warn("⚠️ Audio permission denied or not available, recording without audio:", audioError);
+            }
+
+            // รวม stream
+            const streamTracks = [...videoStream.getVideoTracks()];
+            if (audioTrack) {
+                streamTracks.push(audioTrack);
+                console.log("✅ Combined video + audio stream");
+            } else {
+                console.log("⚠️ Using video-only stream");
+            }
+            const combinedStream = new MediaStream(streamTracks);
+
+            // เลือก MIME type
+            const mimeTypes = ['video/mp4', 'video/webm', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8'];
+            let selectedMimeType = null;
+
+            for (const mimeType of mimeTypes) {
+                if (MediaRecorder.isTypeSupported(mimeType)) {
+                    selectedMimeType = mimeType;
+                    console.log(`✅ Supported MIME type: ${mimeType}`);
+                    break;
+                }
+            }
+
+            if (!selectedMimeType) {
+                console.warn("⚠️ No supported MIME type found, using browser default");
+                selectedMimeType = 'video/mp4';
+            }
+
+            // สร้าง MediaRecorder
+            const options = selectedMimeType ? { mimeType: selectedMimeType } : {};
+            mediaRecorderRef.current = new MediaRecorder(combinedStream, options);
+            recordedChunksRef.current = [];
+            console.log("✅ MediaRecorder created with options:", options);
+
+            mediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recordedChunksRef.current.push(event.data);
+                    console.log("📦 Data available, chunk size:", event.data.size);
+                }
+            };
+
+            mediaRecorderRef.current.onerror = (event) => {
+                console.error("❌ MediaRecorder error:", event.error);
+                alert("เกิดข้อผิดพลาดในการอัดวิดีโอ กรุณาลองใหม่อีกครั้ง");
+                if (audioTrackRef.current) {
+                    audioTrackRef.current.stop();
+                    audioTrackRef.current = null;
+                }
+                setIsRecording(false);
+                setIsProcessing(false);
+            };
+
+            mediaRecorderRef.current.onstop = async () => {
+                console.log("🛑 MediaRecorder stopped, processing video file...");
+                isRecordingRef.current = false;
+                setIsProcessing(true);
+
+                try {
+                    const videoBlob = new Blob(recordedChunksRef.current, { type: selectedMimeType });
+                    console.log("✅ Video blob created, size:", videoBlob.size);
+
+                    if (videoBlob.size === 0) {
+                        throw new Error("Recorded video is empty");
+                    }
+
+                    const videoUrl = URL.createObjectURL(videoBlob);
+                    setCapturedVideo({ src: videoUrl, mimeType: selectedMimeType });
+                    setShowPreview(true);
+                    console.log("✅ Video processing complete");
+                } catch (error) {
+                    console.error("❌ Error processing video:", error);
+                    alert("เกิดข้อผิดพลาดในการประมวลผลวิดีโอ");
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+
+            // เริ่มอัดวิดีโอ
+            mediaRecorderRef.current.start();
+            isRecordingRef.current = true;
+            console.log("🎬 MediaRecorder started, state:", mediaRecorderRef.current.state);
+
+            // โหลด background image และ assets
+            const backgroundImg = new Image();
+            const assets = getAllAssets(flavor);
+            console.log("🖼️ Loading background and assets...");
+
+            // โหลด assets ทั้งหมดก่อน
+            const assetImages = assets.map(asset => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve({ ...asset, img });
+                    img.src = asset.src;
+                });
+            });
+
+            Promise.all([backgroundImg, ...assetImages]).then(([bgImg, ...loadedAssets]) => {
+                console.log("✅ All images loaded, starting frame processing");
+
+                // เริ่มการวาด frame
+                const processFrame = () => {
+                    if (!isRecordingRef.current) return;
+
+                    try {
+                        // วาด background
+                        ctx.drawImage(bgImg, 0, 0, 720, 1280);
+
+                        // วาดเส้นกรอบ (ก่อน video แต่อยู่ด้านหลัง)
+                        ctx.save();
+                        if (flavor === 'secret') {
+                            ctx.strokeStyle = '#e91e63';
+                            ctx.lineWidth = 1;
+                            const frameWidth = Math.min(1280 * 0.95, 720 * 1.2);
+                            const frameHeight = Math.min(1280 * 1.2, 720 * 1.6);
+                            const centerX = 720 / 2;
+                            const centerY = 1280 / 2;
+                            for (let i = 0; i < 12; i++) {
+                                ctx.save();
+                                ctx.translate(centerX, centerY);
+                                ctx.rotate((i * 30) * Math.PI / 180);
+                                const scale = Math.min(frameWidth, frameHeight) / 100;
+                                ctx.scale(scale, scale);
+                                ctx.beginPath();
+                                ctx.roundRect(38.5 - 50, -11 - 50, 23, 54, 11.5);
+                                ctx.stroke();
+                                ctx.restore();
+                            }
+                        } else {
+                            ctx.strokeStyle = '#ff69b4';
+                            ctx.lineWidth = 2;
+                            const frameWidth = Math.min(1280 * 0.65, 720 * 0.75);
+                            const frameHeight = Math.min(1280 * 1.1, 720 * 1.3);
+                            const centerX = 720 / 2;
+                            const centerY = 1280 / 2;
+                            const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
+                            ctx.beginPath();
+                            ctx.roundRect(
+                                centerX - frameWidth / 2,
+                                centerY - frameHeight / 2,
+                                frameWidth,
+                                frameHeight,
+                                borderRadius
+                            );
+                            ctx.stroke();
+                        }
+                        ctx.restore();
+
+                        // วาด camera frame และ video
+                        const video = videoRef.current;
+                        if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+                            // คำนวณขนาดและตำแหน่งของ video
+                            const videoAspectRatio = video.videoWidth / video.videoHeight;
+                            let cameraWidth, cameraHeight, cameraX, cameraY;
+
+                            if (flavor === 'secret') {
+                                cameraWidth = Math.min(1280 * 0.95, 720 * 1.2);
+                                cameraHeight = Math.min(1280 * 1.2, 720 * 1.6);
+                                cameraX = (720 - cameraWidth) / 2;
+                                cameraY = (1280 - cameraHeight) / 2;
+                            } else {
+                                cameraWidth = Math.min(1280 * 0.65, 720 * 0.75);
+                                cameraHeight = Math.min(1280 * 1.1, 720 * 1.3);
+                                cameraX = (720 - cameraWidth) / 2;
+                                cameraY = (1280 - cameraHeight) / 2;
+                            }
+
+                            let videoWidth = cameraWidth;
+                            let videoHeight = videoWidth / videoAspectRatio;
+                            if (videoHeight < cameraHeight) {
+                                videoHeight = cameraHeight;
+                                videoWidth = videoHeight * videoAspectRatio;
+                            }
+                            const videoX = cameraX + (cameraWidth - videoWidth) / 2;
+                            const videoY = cameraY + (cameraHeight - videoHeight) / 2;
+
+                            // วาด camera frame
+                            ctx.save();
+                            if (flavor === 'secret') {
+                                ctx.beginPath();
+                                const frameWidth = Math.min(1280 * 0.95, 720 * 1.2);
+                                const frameHeight = Math.min(1280 * 1.2, 720 * 1.6);
+                                const centerX = 720 / 2;
+                                const centerY = 1280 / 2;
+                                const radius = Math.min(frameWidth, frameHeight) / 2 * 0.4;
+                                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                                for (let i = 0; i < 12; i++) {
+                                    ctx.save();
+                                    ctx.translate(centerX, centerY);
+                                    ctx.rotate((i * 30) * Math.PI / 180);
+                                    const scale = Math.min(frameWidth, frameHeight) / 100;
+                                    ctx.scale(scale, scale);
+                                    ctx.roundRect(38.5 - 50, -11 - 50, 23, 54, 11.5);
+                                    ctx.restore();
+                                }
+                            } else {
+                                const frameWidth = Math.min(1280 * 0.65, 720 * 0.75);
+                                const frameHeight = Math.min(1280 * 1.1, 720 * 1.3);
+                                const centerX = 720 / 2;
+                                const centerY = 1280 / 2;
+                                const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
+                                ctx.roundRect(
+                                    centerX - frameWidth / 2,
+                                    centerY - frameHeight / 2,
+                                    frameWidth,
+                                    frameHeight,
+                                    borderRadius
+                                );
+                            }
+                            ctx.clip();
+
+                            // วาด video
+                            if (isFrontCamera) {
+                                ctx.save();
+                                ctx.translate(videoX + videoWidth, videoY);
+                                ctx.scale(-1, 1);
+                                ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+                                ctx.restore();
+                            } else {
+                                ctx.drawImage(video, videoX, videoY, videoWidth, videoHeight);
+                            }
+                            ctx.restore();
+                        }
+
+                        // วาด assets (ใช้ loadedAssets ที่โหลดแล้ว)
+                        loadedAssets.forEach(asset => {
+                            const position = calculateAssetPosition(asset, 720, 1280);
+                            ctx.drawImage(asset.img, position.x, position.y, position.width, position.height);
+                        });
+
+                        // เรียก frame ถัดไป
+                        animationFrameIdRef.current = requestAnimationFrame(processFrame);
+                    } catch (error) {
+                        console.error("❌ Error in frame processing:", error);
+                        animationFrameIdRef.current = requestAnimationFrame(processFrame);
+                    }
+                };
+
+                // เริ่มการวาด frame
+                backgroundImg.onload = () => {
+                    processFrame();
+                };
+                backgroundImg.src = '/mockup/mockup.png';
+            });
+
+            return true;
+        } catch (error) {
+            console.error("❌ Error starting MediaRecorder:", error);
+            alert("เกิดข้อผิดพลาดในการเริ่มอัดวิดีโอ");
+            return false;
+        }
+    }, [flavor, imageUrl, isFrontCamera, setCapturedVideo, setShowPreview, setIsProcessing]);
+
     // ฟังก์ชันสำหรับใช้ Muxer (Chrome/Android) - ใช้ WebCodecs + mp4-muxer
     const startRecordingWithMuxer = useCallback(async () => {
-        console.log("Using Muxer for Chrome/Android");
+        console.log("🎬 Using Muxer for Chrome/Android");
+
+        // ตรวจสอบ WebCodecs support
         if (!('VideoEncoder' in window) || !('AudioEncoder' in window)) {
-            console.warn('WebCodecs not supported, fallback to MediaRecorder');
+            console.warn('⚠️ WebCodecs not supported, fallback to MediaRecorder');
             return startRecordingWithMediaRecorder();
         }
-        // ไม่ต้อง setIsProcessing(true) ที่นี่ เพราะจะเริ่มอัดทันที
+
         try {
             // 1. เตรียม canvas และ context
             const width = 720;
@@ -215,6 +553,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
             recordingCanvas.width = width;
             recordingCanvas.height = height;
             const ctx = recordingCanvas.getContext('2d');
+            console.log("✅ Recording canvas created for Muxer");
 
             // 2. เตรียม mp4-muxer
             const muxer = new Muxer({
@@ -228,22 +567,39 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 audio: { codec: 'aac', sampleRate: 48000, numberOfChannels: 1 },
             });
             muxerRef.current = muxer;
+            console.log("✅ Muxer created");
 
             // 3. เตรียม VideoEncoder
-            let videoFrameCount = 0;
             const videoEncoder = new window.VideoEncoder({
-                output: (chunk, meta) => {
-                    muxer.addVideoChunk(chunk);
+                output: (chunk) => {
+                    try {
+                        muxer.addVideoChunk(chunk);
+                    } catch (error) {
+                        console.error("❌ Error adding video chunk:", error);
+                    }
                 },
-                error: (e) => console.error('VideoEncoder error', e),
+                error: (e) => {
+                    console.error('❌ VideoEncoder error:', e);
+                    // Fallback to MediaRecorder on error
+                    console.log("🔄 Falling back to MediaRecorder due to VideoEncoder error");
+                    isRecordingRef.current = false;
+                    startRecordingWithMediaRecorder();
+                },
             });
-            videoEncoder.configure({
-                codec: 'avc1.42E01E',
-                width,
-                height,
-                framerate: fps,
-            });
-            videoEncoderRef.current = videoEncoder;
+
+            try {
+                await videoEncoder.configure({
+                    codec: 'avc1.42E01E',
+                    width,
+                    height,
+                    framerate: fps,
+                });
+                videoEncoderRef.current = videoEncoder;
+                console.log("✅ VideoEncoder configured");
+            } catch (error) {
+                console.error("❌ VideoEncoder configuration failed:", error);
+                throw new Error("VideoEncoder configuration failed");
+            }
 
             // 4. เตรียม AudioEncoder (optional, fallback to silent if denied)
             let audioEncoder = null;
@@ -254,8 +610,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
             let audioProcessor = null;
             let audioSampleRate = 48000;
             let audioChannels = 1;
-            let audioBufferQueue = [];
-            let audioClosed = false;
+
             try {
                 // ใช้ stream เดียวกันกับกล้อง (ไม่ขอสิทธิ์ใหม่)
                 if (currentStream) {
@@ -273,46 +628,37 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                     audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     audioTrack = audioStream.getAudioTracks()[0];
                 }
+
                 audioContext = new window.AudioContext({ sampleRate: audioSampleRate });
                 audioSource = audioContext.createMediaStreamSource(audioStream);
                 audioProcessor = audioContext.createScriptProcessor(4096, audioChannels, audioChannels);
                 audioSource.connect(audioProcessor);
                 audioProcessor.connect(audioContext.destination);
+
                 audioEncoder = new window.AudioEncoder({
-                    output: (chunk, meta) => {
-                        muxer.addAudioChunk(chunk);
+                    output: (chunk) => {
+                        try {
+                            muxer.addAudioChunk(chunk);
+                        } catch (error) {
+                            console.error("❌ Error adding audio chunk:", error);
+                        }
                     },
-                    error: (e) => console.error('AudioEncoder error', e),
+                    error: (e) => console.error('❌ AudioEncoder error:', e),
                 });
-                audioEncoder.configure({
+
+                await audioEncoder.configure({
                     codec: 'mp4a.40.2',
                     sampleRate: audioSampleRate,
                     numberOfChannels: audioChannels,
                 });
                 audioEncoderRef.current = audioEncoder;
-                audioProcessor.onaudioprocess = (e) => {
-                    if (audioClosed) return;
-                    const input = e.inputBuffer.getChannelData(0);
-                    const pcm = new Int16Array(input.length);
-                    for (let i = 0; i < input.length; i++) {
-                        pcm[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff;
-                    }
-                    const audioData = new window.AudioData({
-                        format: 's16',
-                        sampleRate: audioSampleRate,
-                        numberOfFrames: pcm.length,
-                        numberOfChannels: audioChannels,
-                        timestamp: Math.round(audioContext.currentTime * 1e6),
-                        data: pcm.buffer,
-                    });
-                    audioEncoder.encode(audioData);
-                    audioData.close();
-                };
-            } catch (err) {
-                console.warn('No audio input, will record silent video', err);
+                console.log("✅ AudioEncoder configured");
+            } catch (audioError) {
+                console.warn("⚠️ Audio setup failed, recording without audio:", audioError);
+                // Continue without audio
             }
 
-            // 5. โหลด assets
+            // 5. โหลด background image และ assets
             const backgroundImg = new Image();
             const assets = getAllAssets(flavor);
             const assetImages = assets.map(asset => {
@@ -322,29 +668,38 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                     img.src = asset.src;
                 });
             });
+
+            console.log("🖼️ Loading background and assets for Muxer...");
             await new Promise((resolve) => {
                 backgroundImg.onload = resolve;
-                backgroundImg.src = imageUrl || mockupImage;
+                backgroundImg.src = '/mockup/mockup.png';
             });
             const loadedAssets = await Promise.all(assetImages);
+            console.log("✅ All assets loaded for Muxer");
 
             // 6. วาดและ encode frame loop
             let startTime = null;
             isRecordingRef.current = true;
-            function processFrame(now) {
+            console.log("🎬 Starting Muxer recording loop");
+
+            async function processFrame(now) {
                 if (!startTime) startTime = now;
                 const elapsed = (now - startTime) / 1000;
                 if (elapsed > durationLimit || !isRecordingRef.current) {
                     isRecordingRef.current = false;
                     return;
                 }
-                // วาด frame (เหมือนเดิม)
-                ctx.drawImage(backgroundImg, 0, 0, width, height);
-                drawCameraFrame(ctx, width, height, () => {
+
+                try {
+                    // 1. วาด background image
+                    ctx.drawImage(backgroundImg, 0, 0, width, height);
+
+                    // 2. วาด camera frame และ video
                     const video = videoRef.current;
                     if (video) {
                         const videoAspectRatio = video.videoWidth / video.videoHeight;
                         let cameraWidth, cameraHeight, cameraX, cameraY;
+
                         if (flavor === 'secret') {
                             cameraWidth = Math.min(height * 0.95, width * 1.2);
                             cameraHeight = Math.min(height * 1.2, width * 1.6);
@@ -356,6 +711,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                             cameraX = (width - cameraWidth) / 2;
                             cameraY = (height - cameraHeight) / 2;
                         }
+
                         let videoWidth = cameraWidth;
                         let videoHeight = videoWidth / videoAspectRatio;
                         if (videoHeight < cameraHeight) {
@@ -364,6 +720,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         }
                         const videoX = cameraX + (cameraWidth - videoWidth) / 2;
                         const videoY = cameraY + (cameraHeight - videoHeight) / 2;
+
+                        // วาด camera frame
                         ctx.save();
                         if (flavor === 'secret') {
                             ctx.beginPath();
@@ -397,6 +755,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                             );
                         }
                         ctx.clip();
+
+                        // วาด video
                         if (isFrontCamera) {
                             ctx.save();
                             ctx.translate(videoX + videoWidth, videoY);
@@ -406,321 +766,58 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         } else {
                             ctx.drawImage(video, videoX, videoY, videoWidth, videoHeight);
                         }
-                        ctx.restore();
                     }
+
+                    // 3. วาด assets
                     loadedAssets.forEach(asset => {
                         const position = calculateAssetPosition(asset, width, height);
                         ctx.drawImage(asset.img, position.x, position.y, position.width, position.height);
                     });
-                    // encode frame
-                    const frame = new window.VideoFrame(recordingCanvas, { timestamp: Math.round(elapsed * 1e6) });
-                    videoEncoder.encode(frame);
-                    frame.close();
-                    videoFrameCount++;
-                });
-                animationFrameIdRef.current = requestAnimationFrame(processFrame);
+
+                    // 4. Encode frame
+                    const imageData = ctx.getImageData(0, 0, width, height);
+                    const videoFrame = new VideoFrame(imageData, {
+                        timestamp: elapsed * 1000000, // microseconds
+                        duration: 1000000 / fps,
+                    });
+
+                    try {
+                        await videoEncoder.encode(videoFrame);
+                        videoFrame.close();
+                    } catch (encodeError) {
+                        console.error("❌ Video encoding error:", encodeError);
+                        videoFrame.close();
+                        throw encodeError;
+                    }
+
+                    // 5. เรียก frame ถัดไป
+                    animationFrameIdRef.current = requestAnimationFrame(processFrame);
+                } catch (frameError) {
+                    console.error("❌ Frame processing error:", frameError);
+                    // Fallback to MediaRecorder on critical error
+                    console.log("🔄 Falling back to MediaRecorder due to frame processing error");
+                    isRecordingRef.current = false;
+                    startRecordingWithMediaRecorder();
+                }
             }
-            animationFrameIdRef.current = requestAnimationFrame(processFrame);
-            // stop logic: call stopped = true
-            // (stopVideoRecording จะต้อง set stopped = true)
+
+            // เริ่มการวาด frame
+            processFrame(performance.now());
             return true;
-        } catch (err) {
-            setIsProcessing(false);
-            alert('เกิดข้อผิดพลาดในการอัดวิดีโอ (WebCodecs/mp4-muxer)');
-            return false;
+        } catch (error) {
+            console.error("❌ Muxer setup failed:", error);
+            console.log("🔄 Falling back to MediaRecorder");
+            return startRecordingWithMediaRecorder();
         }
     }, [flavor, imageUrl, isFrontCamera, setCapturedVideo, setShowPreview, setIsProcessing]);
 
-    // ฟังก์ชันสำหรับใช้ MediaRecorder (iOS/Safari และอื่นๆ)
-    const startRecordingWithMediaRecorder = useCallback(async () => {
-        console.log("Using MediaRecorder for iOS/Safari");
-
-        try {
-            // สร้าง canvas สำหรับอัดวิดีโอ
-            const recordingCanvas = document.createElement('canvas');
-            recordingCanvas.width = 720;
-            recordingCanvas.height = 1280;
-            const ctx = recordingCanvas.getContext('2d');
-
-            // สร้าง video stream จาก canvas
-            const videoStream = recordingCanvas.captureStream(30);
-
-            // เพิ่ม audio stream (ใช้ stream เดียวกันกับกล้อง)
-            let audioStream = null;
-            let audioTrack = null;
-            try {
-                if (currentStream) {
-                    const audioTracks = currentStream.getAudioTracks();
-                    if (audioTracks.length > 0) {
-                        audioTrack = audioTracks[0];
-                        audioStream = new MediaStream([audioTrack]);
-                        audioTrackRef.current = audioTrack;
-                    } else {
-                        // ถ้าไม่มี audio track ใน stream เดิม ให้ขอใหม่
-                        audioStream = await navigator.mediaDevices.getUserMedia({
-                            audio: {
-                                echoCancellation: true,
-                                noiseSuppression: true,
-                                autoGainControl: true
-                            }
-                        });
-                        audioTrack = audioStream.getAudioTracks()[0];
-                        audioTrackRef.current = audioTrack;
-                    }
-                } else {
-                    // ถ้าไม่มี stream เดิม ให้ขอใหม่
-                    audioStream = await navigator.mediaDevices.getUserMedia({
-                        audio: {
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true
-                        }
-                    });
-                    audioTrack = audioStream.getAudioTracks()[0];
-                    audioTrackRef.current = audioTrack;
-                }
-            } catch (audioError) {
-                console.warn("Audio permission denied or not available, recording without audio:", audioError);
-            }
-
-            // รวม stream
-            const streamTracks = [...videoStream.getVideoTracks()];
-            if (audioTrack) {
-                streamTracks.push(audioTrack);
-            }
-            const combinedStream = new MediaStream(streamTracks);
-
-            // เลือก MIME type
-            const mimeTypes = ['video/mp4', 'video/webm', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8'];
-            let selectedMimeType = null;
-
-            for (const mimeType of mimeTypes) {
-                if (MediaRecorder.isTypeSupported(mimeType)) {
-                    selectedMimeType = mimeType;
-                    console.log(`✅ Supported MIME type: ${mimeType}`);
-                    break;
-                }
-            }
-
-            if (!selectedMimeType) {
-                console.warn("No supported MIME type found, using browser default");
-                selectedMimeType = 'video/mp4';
-            }
-
-            // สร้าง MediaRecorder
-            const options = selectedMimeType ? { mimeType: selectedMimeType } : {};
-            mediaRecorderRef.current = new MediaRecorder(combinedStream, options);
-            recordedChunksRef.current = [];
-
-            mediaRecorderRef.current.ondataavailable = (event) => {
-                if (event.data && event.data.size > 0) {
-                    recordedChunksRef.current.push(event.data);
-                }
-            };
-
-            mediaRecorderRef.current.onerror = (event) => {
-                console.error("MediaRecorder error:", event.error);
-                alert("เกิดข้อผิดพลาดในการอัดวิดีโอ กรุณาลองใหม่อีกครั้ง");
-                if (audioTrackRef.current) {
-                    audioTrackRef.current.stop();
-                    audioTrackRef.current = null;
-                }
-                setIsRecording(false);
-                setIsProcessing(false);
-            };
-
-            mediaRecorderRef.current.onstop = async () => {
-                console.log("Processing video file...");
-                setIsProcessing(true);
-
-                try {
-                    const videoBlob = new Blob(recordedChunksRef.current, { type: selectedMimeType });
-
-                    if (videoBlob.size === 0) {
-                        throw new Error("Recorded video is empty");
-                    }
-
-                    const videoUrl = URL.createObjectURL(videoBlob);
-                    setCapturedVideo({ src: videoUrl, mimeType: selectedMimeType });
-                    setShowPreview(true);
-                } catch (error) {
-                    console.error("Error processing video:", error);
-                    alert("เกิดข้อผิดพลาดในการประมวลผลวิดีโอ");
-                } finally {
-                    setIsProcessing(false);
-                }
-            };
-
-            // เริ่มอัดวิดีโอ
-            mediaRecorderRef.current.start();
-            console.log("MediaRecorder started, state:", mediaRecorderRef.current.state);
-
-            // โหลด background image และ assets ครั้งเดียว
-            const backgroundImg = new Image();
-            const assets = getAllAssets(flavor);
-
-            // โหลด assets ทั้งหมดก่อน
-            const assetImages = assets.map(asset => {
-                return new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve({ ...asset, img });
-                    img.src = asset.src;
-                });
-            });
-
-            Promise.all([backgroundImg, ...assetImages]).then(([bgImg, ...loadedAssets]) => {
-                console.log("All images loaded, starting frame processing");
-
-                // เริ่มวาด frame
-                const processFrame = () => {
-                    // ใช้ ref แทน state เพื่อให้อัพเดทได้
-                    if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') {
-                        console.log("Recording stopped, stopping frame processing");
-                        return;
-                    }
-
-                    try {
-                        console.log("Processing frame...");
-
-                        // 1. วาด background image ก่อน
-                        ctx.drawImage(bgImg, 0, 0, recordingCanvas.width, recordingCanvas.height);
-                        console.log("Background drawn");
-
-                        // 2. วาดเส้นกรอบหลังพื้นหลัง
-                        drawCameraFrame(ctx, recordingCanvas.width, recordingCanvas.height, () => {
-                            console.log("Camera frame drawn");
-
-                            // 3. วาด video frame (กล้อง) เฉพาะในกรอบ (ใช้วิธีเดียวกับ capturePhoto)
-                            const video = videoRef.current;
-                            if (video) {
-                                const videoAspectRatio = video.videoWidth / video.videoHeight;
-
-                                // คำนวณขนาดและตำแหน่งกรอบกล้องตามโค้ด UI (เหมือน capturePhoto)
-                                let cameraWidth, cameraHeight, cameraX, cameraY;
-
-                                if (flavor === 'secret') {
-                                    // กรอบดอกไม้สำหรับ secret flavor
-                                    cameraWidth = Math.min(recordingCanvas.height * 0.95, recordingCanvas.width * 1.2);
-                                    cameraHeight = Math.min(recordingCanvas.height * 1.2, recordingCanvas.width * 1.6);
-                                    cameraX = (recordingCanvas.width - cameraWidth) / 2;
-                                    cameraY = (recordingCanvas.height - cameraHeight) / 2;
-                                } else {
-                                    // กรอบสี่เหลี่ยมสำหรับ flavors อื่นๆ
-                                    cameraWidth = Math.min(recordingCanvas.height * 0.65, recordingCanvas.width * 0.75);
-                                    cameraHeight = Math.min(recordingCanvas.height * 1.1, recordingCanvas.width * 1.3);
-                                    cameraX = (recordingCanvas.width - cameraWidth) / 2;
-                                    cameraY = (recordingCanvas.height - cameraHeight) / 2;
-                                }
-
-                                // คำนวณขนาด video ให้เต็มกรอบกล้อง
-                                let videoWidth = cameraWidth;
-                                let videoHeight = videoWidth / videoAspectRatio;
-                                if (videoHeight < cameraHeight) {
-                                    videoHeight = cameraHeight;
-                                    videoWidth = videoHeight * videoAspectRatio;
-                                }
-
-                                const videoX = cameraX + (cameraWidth - videoWidth) / 2;
-                                const videoY = cameraY + (cameraHeight - videoHeight) / 2;
-
-                                // สร้าง mask สำหรับกรอบกล้อง (ใช้วิธีเดียวกับ capturePhoto)
-                                ctx.save();
-
-                                if (flavor === 'secret') {
-                                    // สร้าง mask รูปดอกไม้ 12 กลีบ (รูปทรงเดียวกับเส้นกรอบ)
-                                    ctx.beginPath();
-
-                                    // ใช้ขนาดและตำแหน่งเดียวกับเส้นกรอบ
-                                    const frameWidth = Math.min(recordingCanvas.height * 0.95, recordingCanvas.width * 1.2);
-                                    const frameHeight = Math.min(recordingCanvas.height * 1.2, recordingCanvas.width * 1.6);
-                                    const centerX = recordingCanvas.width / 2;
-                                    const centerY = recordingCanvas.height / 2;
-
-                                    // วาดวงกลมกลาง
-                                    const radius = Math.min(frameWidth, frameHeight) / 2 * 0.4;
-                                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-
-                                    // วาดกลีบดอกไม้ 12 กลีบ (รูปทรงเดียวกับเส้นกรอบ)
-                                    for (let i = 0; i < 12; i++) {
-                                        ctx.save();
-                                        ctx.translate(centerX, centerY);
-                                        ctx.rotate((i * 30) * Math.PI / 180);
-
-                                        // ใช้ขนาดและตำแหน่งเดียวกับเส้นกรอบ
-                                        const scale = Math.min(frameWidth, frameHeight) / 100;
-                                        ctx.scale(scale, scale);
-                                        ctx.roundRect(38.5 - 50, -11 - 50, 23, 54, 11.5);
-                                        ctx.restore();
-                                    }
-                                } else {
-                                    // สร้าง mask รูปสี่เหลี่ยมมีขอบมน (รูปทรงเดียวกับเส้นกรอบ)
-                                    const frameWidth = Math.min(recordingCanvas.height * 0.65, recordingCanvas.width * 0.75);
-                                    const frameHeight = Math.min(recordingCanvas.height * 1.1, recordingCanvas.width * 1.3);
-                                    const centerX = recordingCanvas.width / 2;
-                                    const centerY = recordingCanvas.height / 2;
-                                    const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
-
-                                    ctx.roundRect(
-                                        centerX - frameWidth / 2,
-                                        centerY - frameHeight / 2,
-                                        frameWidth,
-                                        frameHeight,
-                                        borderRadius
-                                    );
-                                }
-
-                                ctx.clip();
-
-                                // วาด video ในกรอบ
-                                if (isFrontCamera) {
-                                    ctx.save();
-                                    ctx.translate(videoX + videoWidth, videoY);
-                                    ctx.scale(-1, 1);
-                                    ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
-                                    ctx.restore();
-                                } else {
-                                    ctx.drawImage(video, videoX, videoY, videoWidth, videoHeight);
-                                }
-
-                                ctx.restore();
-                                console.log("Camera feed drawn with mask");
-                            }
-
-                            // 4. วาด assets (ใช้ loaded images)
-                            loadedAssets.forEach(asset => {
-                                const position = calculateAssetPosition(asset, recordingCanvas.width, recordingCanvas.height);
-                                ctx.drawImage(asset.img, position.x, position.y, position.width, position.height);
-                            });
-                            console.log("Assets drawn, requesting next frame");
-
-                            // วาดเสร็จแล้ว ให้วาด frame ถัดไป
-                            animationFrameIdRef.current = requestAnimationFrame(processFrame);
-                        });
-                    } catch (frameError) {
-                        console.error("Error processing frame:", frameError);
-                        animationFrameIdRef.current = requestAnimationFrame(processFrame);
-                    }
-                };
-
-                processFrame();
-            });
-
-            backgroundImg.src = imageUrl || mockupImage;
-
-            return true;
-        } catch (error) {
-            console.error("Failed to start video recording:", error);
-            alert("ไม่สามารถเริ่มอัดวิดีโอได้");
-            return false;
-        }
-    }, [isRecording]);
-
     // ฟังก์ชันสำหรับหยุดอัดวิดีโอ
     const stopVideoRecording = useCallback(() => {
-        console.log("ACTION: Stop Video Recording");
+        console.log("🛑 ACTION: Stop Video Recording");
 
         // หยุด MediaRecorder (สำหรับ iOS/Safari)
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            console.log("🛑 Stopping MediaRecorder...");
             mediaRecorderRef.current.stop();
         }
 
@@ -734,15 +831,17 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
             setIsProcessing(true);
 
             requestAnimationFrame(async () => {
-                console.log("Processing video file with muxer...");
+                console.log("🔄 Processing video file with muxer...");
 
                 // หยุด video encoder
                 if (videoEncoderRef.current?.state === 'configured') {
+                    console.log("🛑 Flushing video encoder...");
                     await videoEncoderRef.current.flush().catch(console.error);
                 }
 
                 // หยุด audio encoder
                 if (audioEncoderRef.current?.state === 'configured') {
+                    console.log("🛑 Flushing audio encoder...");
                     await audioEncoderRef.current.flush().catch(console.error);
                 }
 
@@ -770,9 +869,11 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
         // หยุด Timer และ Animation Frame
         clearTimeout(recordTimerRef.current);
         cancelAnimationFrame(animationFrameIdRef.current);
+        console.log("🛑 Cleared timers and animation frames");
 
         // หยุด audio track
         if (audioTrackRef.current) {
+            console.log("🛑 Stopping audio track...");
             audioTrackRef.current.stop();
             audioTrackRef.current = null;
         }
@@ -794,27 +895,40 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
     }, []);
 
     const handleCapture = () => {
+        console.log("📸 Handle Capture - Video Mode:", isVideoMode, "Recording:", isRecording);
+        console.log("📸 Current Stream:", currentStream);
+        console.log("📸 Video Ref:", videoRef.current);
+
         if (isVideoMode) {
             if (isRecording) {
                 // หยุดบันทึกวิดีโอ
+                console.log("🛑 Stopping video recording...");
                 stopVideoRecording();
                 setIsRecording(false);
             } else {
                 // เริ่มบันทึกวิดีโอ
+                console.log("🎬 Starting video recording...");
+                console.log("🎬 Current Stream:", currentStream);
+                console.log("🎬 Video Ref:", videoRef.current);
                 startVideoRecording().then(success => {
+                    console.log("🎬 Video recording result:", success);
                     if (success) {
                         setIsRecording(true);
+                        console.log("✅ Video recording started successfully");
                         // ตั้งเวลาหยุดอัตโนมัติ 30 วินาที
                         recordTimerRef.current = setTimeout(() => {
+                            console.log("⏰ Auto-stopping video recording after 30s");
                             stopVideoRecording();
                             setIsRecording(false);
                         }, 30000);
+                    } else {
+                        console.error("❌ Failed to start video recording");
                     }
                 });
             }
         } else {
-            // ระบบถ่ายภาพจริง
-            console.log('ถ่ายภาพ');
+            // ถ่ายภาพ
+            console.log("📸 Taking photo...");
             capturePhoto();
         }
     };
@@ -830,12 +944,12 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
 
             // ตั้งขนาด output ตามตัวอย่าง (9:16 aspect ratio)
             const outputWidth = 1024;
-            const outputHeight = 1920;
+            const outputHeight = 1792;
             finalCanvas.width = outputWidth;
             finalCanvas.height = outputHeight;
 
             requestAnimationFrame(() => {
-                // 1. วาดพื้นหลัง (mockup image)
+                // 1. วาดพื้นหลัง (ใช้ mockup)
                 const backgroundImage = new Image();
                 backgroundImage.onload = () => {
                     ctx.drawImage(backgroundImage, 0, 0, outputWidth, outputHeight);
@@ -851,7 +965,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                             let cameraWidth, cameraHeight, cameraX, cameraY;
 
                             if (flavor === 'secret') {
-                                // กรอบดอกไม้สำหรับ secret flavor
+                                // กรอบดอกไม้ 12 กลีบสำหรับ secret flavor
                                 cameraWidth = Math.min(outputHeight * 0.95, outputWidth * 1.2);
                                 cameraHeight = Math.min(outputHeight * 1.2, outputWidth * 1.6);
                                 cameraX = (outputWidth - cameraWidth) / 2;
@@ -940,20 +1054,31 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         // 4. วาด asset ต่างๆ ตามรสชาติ
                         drawAllAssets(ctx, outputWidth, outputHeight, () => {
                             // 5. สร้าง Data URL
-                            const dataURL = finalCanvas.toDataURL('image/png', 0.9);
-                            console.log('ถ่ายภาพสำเร็จ:', dataURL);
-                            setCapturedPhoto(dataURL);
-                            setShowPreview(true);
+                            try {
+                                const dataURL = finalCanvas.toDataURL('image/png', 0.9);
+                                console.log('ถ่ายภาพสำเร็จ:', dataURL);
+                                setCapturedPhoto(dataURL);
+                                setShowPreview(true);
+                            } catch (error) {
+                                console.error('เกิดข้อผิดพลาดในการ export ภาพ:', error);
+                                alert('เกิดข้อผิดพลาดในการถ่ายภาพ กรุณาลองใหม่อีกครั้ง');
+                            }
                         });
                     });
                 };
 
-                // โหลดพื้นหลัง
-                backgroundImage.src = imageUrl || '/assets/mockup/mockup.png';
-            });
+                // จัดการ error กรณีภาพโหลดไม่สำเร็จ
+                backgroundImage.onerror = () => {
+                    console.error('ไม่สามารถโหลดภาพพื้นหลังได้');
+                    alert('ไม่สามารถโหลดภาพพื้นหลังได้ กรุณาลองใหม่อีกครั้ง');
+                };
 
+                // โหลดพื้นหลัง - ใช้ mockup
+                backgroundImage.src = '/mockup/mockup.png';
+            });
         } catch (error) {
             console.error('เกิดข้อผิดพลาดในการถ่ายภาพ:', error);
+            alert('เกิดข้อผิดพลาดในการถ่ายภาพ กรุณาลองใหม่อีกครั้ง');
         }
     };
 
@@ -1322,7 +1447,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
 
 
     // ฟังก์ชันสำหรับกลับไปหน้าแรกเพื่อเลือกรสชาติใหม่
-    const handleRetry = () => {
+    const _handleRetry = () => {
         resetAfterCapture();
         // กลับไปหน้าแรกเพื่อเลือกรสชาติใหม่
         if (onRestart) {
@@ -1330,14 +1455,23 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
         }
     };
 
+    // ฟังก์ชันสำหรับกลับไปหน้าเลือกรสชาติ
+    const _handleBackToFlavorSelect = () => {
+        resetAfterCapture();
+        // กลับไปหน้าเลือกรสชาติ (step 1)
+        if (onRestart) {
+            onRestart();
+        }
+    };
+
     // ฟังก์ชันสำหรับบันทึก
-    const handleSave = () => {
+    const _handleSave = () => {
         console.log('บันทึกภาพ/วิดีโอ');
         // Mock สำหรับการบันทึก
     };
 
     // ฟังก์ชันสำหรับแชร์
-    const handleShare = () => {
+    const _handleShare = () => {
         console.log('แชร์ภาพ/วิดีโอ');
         // Mock สำหรับการแชร์
     };
@@ -1354,8 +1488,8 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                     : imageUrl
                         ? `url(${imageUrl}) center/cover no-repeat`
                         : `url(${mockupImage}) center/cover no-repeat`,
-            filter: imageUrl && !imageLoaded ? 'blur(16px)' : undefined,
-            transition: 'filter 0.4s',
+            filter: imageUrl && (imageLoading || !imageLoaded) ? 'blur(20px)' : undefined,
+            transition: 'filter 0.6s ease-out',
         }}>
             {/* preload image to detect when loaded */}
             {imageUrl && (
@@ -1365,6 +1499,38 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                     style={{ display: 'none' }}
                     onLoad={() => setImageLoaded(true)}
                 />
+            )}
+
+            {/* Loading indicator for generated image */}
+            {imageUrl && imageLoading && (
+                <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 5,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 16,
+                }}>
+                    <div style={{
+                        width: 40,
+                        height: 40,
+                        border: '3px solid rgba(255, 255, 255, 0.3)',
+                        borderTop: '3px solid #ff9100',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                    }} />
+                    <div style={{
+                        color: '#ffffff',
+                        fontSize: 14,
+                        fontWeight: 500,
+                        textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                    }}>
+                        กำลังโหลดภาพ...
+                    </div>
+                </div>
             )}
             {/* พื้นหลังที่ generate */}
             {/* โลโก้มาม่ากลางขอบบน */}
@@ -1442,19 +1608,19 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         <defs>
                             <mask id="flower8petal-mask" maskUnits="objectBoundingBox" x="0" y="0" width="1" height="1">
                                 <path fill="white" d="M0.5,0.08
-                                    Q0.62,0.18 0.72,0.08
-                                    Q0.82,0.18 0.92,0.28
-                                    Q0.82,0.38 0.92,0.5
-                                    Q0.82,0.62 0.92,0.72
-                                    Q0.82,0.82 0.72,0.92
-                                    Q0.62,0.82 0.5,0.92
-                                    Q0.38,0.82 0.28,0.92
-                                    Q0.18,0.82 0.08,0.72
-                                    Q0.18,0.62 0.08,0.5
-                                    Q0.18,0.38 0.08,0.28
-                                    Q0.18,0.18 0.28,0.08
-                                    Q0.38,0.18 0.5,0.08
-                                    Z" />
+                                        Q0.62,0.18 0.72,0.08
+                                        Q0.82,0.18 0.92,0.28
+                                        Q0.82,0.38 0.92,0.5
+                                        Q0.82,0.62 0.92,0.72
+                                        Q0.82,0.82 0.72,0.92
+                                        Q0.62,0.82 0.5,0.92
+                                        Q0.38,0.82 0.28,0.92
+                                        Q0.18,0.82 0.08,0.72
+                                        Q0.18,0.62 0.08,0.5
+                                        Q0.18,0.38 0.08,0.28
+                                        Q0.18,0.18 0.28,0.08
+                                        Q0.38,0.18 0.5,0.08
+                                        Z" />
                             </mask>
                         </defs>
                     </svg>
@@ -1502,33 +1668,33 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         </svg>
                         {/* ดอกไม้เส้นขอบใหญ่ (background flower outline) */}
                         {/* <svg
-                            width="100%"
-                            height="100%"
-                            viewBox="0 0 100 100"
-                            style={{
-                                position: 'absolute',
-                                top: '50%',
-                                left: '50%',
-                                transform: 'translate(-50%, -50%)',
-                                zIndex: 1,
-                                pointerEvents: 'none',
-                            }}
-                        >
-                            {Array.from({ length: 12 }).map((_, i) => (
-                                <rect
-                                    key={i}
-                                    x={38.5}
-                                    y={-11}
-                                    width={23}
-                                    height={54}
-                                    rx={11.5}
-                                    fill="none"
-                                    stroke="#e91e63"
-                                    strokeWidth={10}
-                                    transform={`rotate(${i * 30} 50 50)`}
-                                />
-                            ))}
-                        </svg> */}
+                                width="100%"
+                                height="100%"
+                                viewBox="0 0 100 100"
+                                style={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    zIndex: 1,
+                                    pointerEvents: 'none',
+                                }}
+                            >
+                                {Array.from({ length: 12 }).map((_, i) => (
+                                    <rect
+                                        key={i}
+                                        x={38.5}
+                                        y={-11}
+                                        width={23}
+                                        height={54}
+                                        rx={11.5}
+                                        fill="none"
+                                        stroke="#e91e63"
+                                        strokeWidth={10}
+                                        transform={`rotate(${i * 30} 50 50)`}
+                                    />
+                                ))}
+                            </svg> */}
                         <div
                             style={{
                                 position: 'absolute',
@@ -1548,6 +1714,7 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                                 autoPlay
                                 playsInline
                                 muted
+
                                 style={{
                                     width: '100%',
                                     height: '100%',
@@ -1591,6 +1758,9 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                         autoPlay
                         playsInline
                         muted
+                        onLoadedMetadata={() => console.log('🎥 Video metadata loaded')}
+                        onCanPlay={() => console.log('�� Video can play')}
+                        onError={(e) => console.error('🎥 Video error:', e)}
                         style={{
                             width: '100%',
                             height: '100%',
@@ -1986,7 +2156,12 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 }}>
                     {/* ปุ่มโหมดถ่ายภาพ */}
                     <button
-                        onClick={() => !isRecording && setIsVideoMode(false)}
+                        onClick={() => {
+                            if (!isRecording) {
+                                console.log("📸 Switching to PHOTO mode");
+                                setIsVideoMode(false);
+                            }
+                        }}
                         onPointerDown={() => !isRecording && setModePressed(true)}
                         onPointerUp={() => setModePressed(false)}
                         onPointerLeave={() => setModePressed(false)}
@@ -2032,7 +2207,12 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
 
                     {/* ปุ่มโหมดวิดีโอ */}
                     <button
-                        onClick={() => !isRecording && setIsVideoMode(true)}
+                        onClick={() => {
+                            if (!isRecording) {
+                                console.log("🎬 Switching to VIDEO mode");
+                                setIsVideoMode(true);
+                            }
+                        }}
                         onPointerDown={() => !isRecording && setModePressed(true)}
                         onPointerUp={() => setModePressed(false)}
                         onPointerLeave={() => setModePressed(false)}
@@ -2068,16 +2248,16 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 </div>
             </div>
             <style>{`
-                @keyframes rotate {
-                    from { transform: translate(-50%, -50%) rotate(0deg); }
-                    to { transform: translate(-50%, -50%) rotate(360deg); }
-                }
-                
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            `}</style>
+                    @keyframes rotate {
+                        from { transform: translate(-50%, -50%) rotate(0deg); }
+                        to { transform: translate(-50%, -50%) rotate(360deg); }
+                    }
+                    
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
 
             {/* Loading Spinner สำหรับการประมวลผลวิดีโอ */}
             {isProcessing && (
@@ -2113,12 +2293,12 @@ const PreviewScreen = ({ flavor, imageUrl, onRestart }) => {
                 </div>
             )}
 
+
+
             {/* แสดง PreviewModal เมื่อ showPreview เป็น true */}
             {showPreview && (
                 <PreviewModal
-                    onRetry={handleRetry}
-                    onSave={handleSave}
-                    onShare={handleShare}
+                    onRetry={_handleBackToFlavorSelect}
                     capturedPhoto={capturedVideo || capturedPhoto}
                 />
             )}

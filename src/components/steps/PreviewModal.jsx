@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import '../../App.css';
-import mockupImage from '../../assets/mockup/mockup.png';
+// import mockupImage from '../../assets/mockup/mockup.png';
 import previewBackground from '../../assets/background/preview-background.png';
+import arrowLeftIcon from '../../assets/icons/arrow-left.png';
+
+// ใช้ path สำหรับ mockup จาก public folder
+const mockupImage = '/mockup/mockup.png';
 
 // ฟังก์ชันตรวจสอบ platform
 const isIOS = () => {
@@ -12,6 +16,23 @@ const isSafari = () => {
     return /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
 };
 
+const isAndroid = () => {
+    return /Android/.test(navigator.userAgent);
+};
+
+const isChrome = () => {
+    return /Chrome/.test(navigator.userAgent) && !/Safari/.test(navigator.userAgent);
+};
+
+const detectBrowserAndPlatform = () => {
+    return {
+        isAndroid: isAndroid(),
+        isChrome: isChrome(),
+        isIOS: isIOS(),
+        isSafari: isSafari()
+    };
+};
+
 const PreviewModal = ({ onRetry, capturedPhoto }) => {
     const [areAssetsReady, setAreAssetsReady] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
@@ -19,8 +40,6 @@ const PreviewModal = ({ onRetry, capturedPhoto }) => {
 
     // ตรวจสอบ platform
     const isIOS_Safari = isIOS() || (isSafari() && /iP(hone|od|ad)/.test(navigator.userAgent));
-
-
 
     useEffect(() => {
         // Simulate asset loading
@@ -50,14 +69,40 @@ const PreviewModal = ({ onRetry, capturedPhoto }) => {
         try {
             // ตรวจสอบว่าเป็นวิดีโอหรือภาพ
             if (capturedPhoto && capturedPhoto.mimeType && capturedPhoto.mimeType.startsWith('video/')) {
-                // บันทึกวิดีโอ
-                const link = document.createElement('a');
-                link.href = capturedPhoto.src;
-                link.download = `mama-ok-ar-video-${Date.now()}.mp4`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showFeedbackMessage('✅ บันทึกวิดีโอแล้ว!');
+                // บันทึกวิดีโอ - ใช้หลักการเดียวกับตัวอย่าง
+                const { isAndroid, isChrome } = detectBrowserAndPlatform();
+
+                if (isAndroid || isChrome) {
+                    console.log("Downloading MP4 for Android/Chrome...");
+                    const response = await fetch(capturedPhoto.src);
+                    const blob = await response.blob();
+
+                    // สร้างไฟล์ MP4 ใหม่ (ไม่ต้องแปลง)
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const filename = `mama-ok-ar-video-${Date.now()}.mp4`;
+
+                    console.log(`Downloading MP4: ${filename} with MIME type: ${blob.type}`);
+
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    // Cleanup URL ที่สร้างใหม่
+                    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+                    showFeedbackMessage('✅ บันทึกวิดีโอแล้ว!');
+                } else {
+                    // สำหรับ browser อื่นๆ
+                    const link = document.createElement('a');
+                    link.href = capturedPhoto.src;
+                    link.download = `mama-ok-ar-video-${Date.now()}.mp4`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showFeedbackMessage('✅ บันทึกวิดีโอแล้ว!');
+                }
             } else {
                 // บันทึกภาพ
                 const imageUrl = capturedPhoto?.src || capturedPhoto || mockupImage;
@@ -78,24 +123,48 @@ const PreviewModal = ({ onRetry, capturedPhoto }) => {
         try {
             // ตรวจสอบว่าเป็นวิดีโอหรือภาพ
             if (capturedPhoto && capturedPhoto.mimeType && capturedPhoto.mimeType.startsWith('video/')) {
-                // แชร์วิดีโอ
+                // แชร์วิดีโอ - ใช้หลักการเดียวกับตัวอย่าง
                 if (navigator.share && navigator.canShare) {
-                    // สร้างไฟล์วิดีโอจาก blob URL
                     const response = await fetch(capturedPhoto.src);
                     const blob = await response.blob();
-                    const file = new File([blob], `mama-ok-ar-video-${Date.now()}.mp4`, { type: 'video/mp4' });
+
+                    // กำหนด MIME type และนามสกุลไฟล์ที่ถูกต้อง
+                    const { isAndroid, isChrome } = detectBrowserAndPlatform();
+
+                    let fileType = 'video/mp4';
+                    let extension = 'mp4';
+
+                    if (isAndroid || isChrome) {
+                        // สำหรับ Android/Chrome ใช้ MP4
+                        fileType = 'video/mp4';
+                        extension = 'mp4';
+                    } else if (capturedPhoto.mimeType?.includes('mp4')) {
+                        fileType = 'video/mp4';
+                        extension = 'mp4';
+                    } else if (capturedPhoto.mimeType?.includes('webm')) {
+                        fileType = 'video/webm';
+                        extension = 'webm';
+                    } else if (capturedPhoto.mimeType?.includes('ogg')) {
+                        fileType = 'video/ogg';
+                        extension = 'ogv';
+                    } else {
+                        // fallback ใช้ mp4
+                        fileType = 'video/mp4';
+                        extension = 'mp4';
+                    }
+
+                    const filename = `mama-ok-ar-video-${Date.now()}.${extension}`;
+                    const file = new File([blob], filename, { type: fileType });
+
+                    console.log(`Sharing video: ${filename} with MIME type: ${fileType}`);
 
                     if (navigator.canShare({ files: [file] })) {
-                        navigator.share({
+                        await navigator.share({
+                            files: [file],
                             title: 'MAMA OK AR Filter',
                             text: 'ดูวิดีโอที่ฉันสร้างด้วย MAMA OK AR Filter!',
-                            files: [file]
-                        }).then(() => {
-                            showFeedbackMessage('📤 แชร์วิดีโอแล้ว!');
-                        }).catch((error) => {
-                            console.error('Error sharing video:', error);
-                            showFeedbackMessage('❌ ไม่สามารถแชร์วิดีโอได้');
                         });
+                        showFeedbackMessage('📤 แชร์วิดีโอแล้ว!');
                     } else {
                         showFeedbackMessage('❌ ไม่สามารถแชร์วิดีโอได้');
                     }
@@ -181,22 +250,41 @@ const PreviewModal = ({ onRetry, capturedPhoto }) => {
         try {
             // ตรวจสอบว่าเป็นวิดีโอหรือภาพ
             if (capturedPhoto && capturedPhoto.mimeType && capturedPhoto.mimeType.startsWith('video/')) {
-                // แชร์วิดีโอสำหรับ iOS
+                // แชร์วิดีโอสำหรับ iOS - ใช้หลักการเดียวกับตัวอย่าง
                 if (navigator.share) {
                     const response = await fetch(capturedPhoto.src);
                     const blob = await response.blob();
-                    const file = new File([blob], `mama-ok-ar-video-${Date.now()}.mp4`, { type: 'video/mp4' });
 
-                    navigator.share({
+                    // กำหนด MIME type และนามสกุลไฟล์ที่ถูกต้อง
+                    let fileType = 'video/mp4';
+                    let extension = 'mp4';
+
+                    if (capturedPhoto.mimeType?.includes('mp4')) {
+                        fileType = 'video/mp4';
+                        extension = 'mp4';
+                    } else if (capturedPhoto.mimeType?.includes('webm')) {
+                        fileType = 'video/webm';
+                        extension = 'webm';
+                    } else if (capturedPhoto.mimeType?.includes('ogg')) {
+                        fileType = 'video/ogg';
+                        extension = 'ogv';
+                    } else {
+                        // fallback ใช้ mp4
+                        fileType = 'video/mp4';
+                        extension = 'mp4';
+                    }
+
+                    const filename = `mama-ok-ar-video-${Date.now()}.${extension}`;
+                    const file = new File([blob], filename, { type: fileType });
+
+                    console.log(`Sharing video for iOS: ${filename} with MIME type: ${fileType}`);
+
+                    await navigator.share({
+                        files: [file],
                         title: 'MAMA OK AR Filter',
                         text: 'ดูวิดีโอที่ฉันสร้างด้วย MAMA OK AR Filter!',
-                        files: [file]
-                    }).then(() => {
-                        showFeedbackMessage('📤 แชร์วิดีโอแล้ว!');
-                    }).catch((error) => {
-                        console.error('Error sharing video:', error);
-                        showFeedbackMessage('❌ ไม่สามารถแชร์วิดีโอได้');
                     });
+                    showFeedbackMessage('📤 แชร์วิดีโอแล้ว!');
                 } else {
                     showFeedbackMessage('❌ ไม่สามารถแชร์วิดีโอได้');
                 }
@@ -278,6 +366,46 @@ const PreviewModal = ({ onRetry, capturedPhoto }) => {
                         aria-hidden="true"
                     />
 
+                    {/* ปุ่มย้อนกลับที่มุมซ้ายบน */}
+                    <button
+                        onClick={onRetry}
+                        style={{
+                            position: 'absolute',
+                            top: 24,
+                            left: 24,
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            border: 'none',
+                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            zIndex: 30,
+                            backdropFilter: 'blur(10px)',
+                            transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                            e.target.style.transform = 'scale(1.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                            e.target.style.transform = 'scale(1)';
+                        }}
+                    >
+                        <img
+                            src={arrowLeftIcon}
+                            alt="Back"
+                            style={{
+                                width: 20,
+                                height: 20,
+                                filter: 'brightness(0) invert(1)',
+                            }}
+                        />
+                    </button>
+
                     {/* กรอบแสดงผลลัพธ์ */}
                     <div className="preview-content-frame" style={{ position: 'relative', overflow: 'hidden' }}>
                         <img
@@ -303,7 +431,6 @@ const PreviewModal = ({ onRetry, capturedPhoto }) => {
                                 alt="Video preview"
                                 className="preview-content with-border"
                                 style={{ position: 'relative', zIndex: 1 }}
-                                controls
                                 autoPlay
                                 muted
                                 loop
@@ -327,7 +454,7 @@ const PreviewModal = ({ onRetry, capturedPhoto }) => {
                             // Safari/iOS: 2 ปุ่ม
                             <>
                                 <div className="preview-actions-top-row">
-                                    <button className="preview-button primary" onClick={onRetry}>
+                                    <button className="preview-button primary" onClick={() => window.location.reload()}>
                                         เล่นอีกครั้ง
                                     </button>
                                     <button className="preview-button secondary" onClick={handleIOSSave}>
@@ -346,7 +473,7 @@ const PreviewModal = ({ onRetry, capturedPhoto }) => {
                                         แชร์
                                     </button>
                                 </div>
-                                <button className="preview-button primary full-width retry-bottom-btn" style={{ marginTop: '14px' }} onClick={onRetry}>
+                                <button className="preview-button primary full-width retry-bottom-btn" style={{ marginTop: '14px' }} onClick={() => window.location.reload()}>
                                     เล่นอีกครั้ง
                                 </button>
                             </>

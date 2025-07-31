@@ -56,7 +56,7 @@ const PromptInput = ({ onBack, fadingIn, onStartLoading, onImageGenerated, disab
         if (onStartLoading) onStartLoading();
 
         try {
-            const url = await generateImageWithDalle3();
+            const url = await generateImageWithDalle3({ prompt: input.trim() });
             if (onImageGenerated) onImageGenerated(url);
         } catch (err) {
             alert('เกิดข้อผิดพลาดในการสร้างภาพ: ' + err.message);
