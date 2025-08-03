@@ -394,7 +394,11 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                         // วาด background
                         ctx.drawImage(bgImg, 0, 0, 720, 1280);
 
-
+                        // วาด assets ก่อน (ให้ทับพื้นหลัง)
+                        loadedAssets.forEach(asset => {
+                            const position = calculateAssetPosition(asset, 720, 1280);
+                            ctx.drawImage(asset.img, position.x, position.y, position.width, position.height);
+                        });
 
                         // วาด camera frame และ video
                         const video = videoRef.current;
@@ -407,12 +411,13 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                                 cameraWidth = Math.min(1280 * 0.88, 720 * 1.12); // เพิ่มขึ้นนิดหน่อย
                                 cameraHeight = Math.min(1280 * 1.12, 720 * 1.52); // เพิ่มขึ้นนิดหน่อย
                                 cameraX = (720 - cameraWidth) / 2;
-                                cameraY = (1280 - cameraHeight) / 2;
+                                cameraY = (1280 - cameraHeight) / 2 + (flavor !== 'secret' ? (1280 * 0.03) : 0);
                             } else {
-                                cameraWidth = Math.min(1280 * 0.65, 720 * 0.75);
-                                cameraHeight = Math.min(1280 * 1.1, 720 * 1.3);
+                                // ปรับให้กว้างขึ้น ไม่ใช่ 5:3 ตายตัว
+                                cameraWidth = Math.min(1280 * 0.8, 720 * 0.8);
+                                cameraHeight = cameraWidth * (3 / 2); // 3:2 aspect ratio (อยู่ระหว่าง 5:3 และ 4:3)
                                 cameraX = (720 - cameraWidth) / 2;
-                                cameraY = (1280 - cameraHeight) / 2;
+                                cameraY = (1280 - cameraHeight) / 2 + (flavor !== 'secret' ? (1280 * 0.03) : 0);
                             }
 
                             // วาดเส้นสีชมพูสำหรับ flavors อื่นๆ (ไม่ใช่ secret)
@@ -449,14 +454,14 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
 
                                 // วาดเส้นสีชมพูสำหรับรส secret
                                 ctx.save();
-                                ctx.strokeStyle = '#ff69b4';
-                                ctx.lineWidth = 5;
+                                ctx.strokeStyle = '#e91e63';
+                                ctx.lineWidth = 8;
                                 ctx.stroke();
                                 ctx.restore();
                             } else {
                                 // ใช้ขนาดเดียวกับ cameraWidth และ cameraHeight
                                 const centerX = 720 / 2;
-                                const centerY = 1280 / 2;
+                                const centerY = 1280 / 2 + (flavor !== 'secret' ? (1280 * 0.03) : 0);
                                 const borderRadius = Math.min(cameraWidth, cameraHeight) * 0.08;
                                 ctx.beginPath();
                                 ctx.roundRect(
@@ -467,8 +472,8 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                                     borderRadius
                                 );
                                 ctx.save();
-                                ctx.strokeStyle = '#ff69b4';
-                                ctx.lineWidth = 4;
+                                ctx.strokeStyle = flavor === 'tonkotsu' ? '#d4af37' : flavor === 'kimchi-seafood' ? '#c2185b' : '#ff1744';
+                                ctx.lineWidth = 5;
                                 ctx.stroke();
                                 ctx.restore();
                             }
@@ -487,7 +492,7 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                             ctx.restore();
                         }
 
-                        // วาด assets (ใช้ loadedAssets ที่โหลดแล้ว)
+                        // วาด assets อีกครั้งหลังเส้นกรอบกล้อง (ให้ทับเส้น)
                         loadedAssets.forEach(asset => {
                             const position = calculateAssetPosition(asset, 720, 1280);
                             ctx.drawImage(asset.img, position.x, position.y, position.width, position.height);
@@ -542,7 +547,7 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
             const recordingCanvas = document.createElement('canvas');
             recordingCanvas.width = videoWidth;
             recordingCanvas.height = videoHeight;
-            const ctx = recordingCanvas.getContext('2d');
+            const ctx = recordingCanvas.getContext('2d', { alpha: false });
             console.log("✅ Recording canvas created for Muxer");
 
             // 2. เตรียม mp4-muxer
@@ -562,7 +567,7 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                 codec: 'avc1.42001f',
                 width: videoWidth,
                 height: videoHeight,
-                bitrate: 3_000_000,
+                bitrate: 3_000_000
             });
 
             // 4. เตรียม AudioEncoder
@@ -623,23 +628,31 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                     // 1. วาด background image
                     ctx.drawImage(backgroundImg, 0, 0, videoWidth, videoHeight);
 
-                    // 2. วาด camera frame และ video
+                    // 2. วาด assets ก่อน (ให้ทับพื้นหลัง)
+                    loadedAssets.forEach(asset => {
+                        const position = calculateAssetPosition(asset, videoWidth, videoHeight);
+                        ctx.drawImage(asset.img, position.x, position.y, position.width, position.height);
+                    });
+
+                    // 3. วาด camera frame และ video
                     const video = videoRef.current;
+                    let cameraWidth, cameraHeight, cameraX, cameraY;
+
+                    if (flavor === 'secret') {
+                        cameraWidth = Math.min(videoHeight * 0.88, videoWidth * 1.12);
+                        cameraHeight = Math.min(videoHeight * 1.12, videoWidth * 1.52);
+                        cameraX = (videoWidth - cameraWidth) / 2;
+                        cameraY = (videoHeight - cameraHeight) / 2 + (flavor !== 'secret' ? (videoHeight * 0.03) : 0);
+                    } else {
+                        // ปรับให้กว้างขึ้น ไม่ใช่ 5:3 ตายตัว
+                        cameraWidth = Math.min(videoHeight * 0.8, videoWidth * 0.8);
+                        cameraHeight = cameraWidth * (3 / 2); // 3:2 aspect ratio (อยู่ระหว่าง 5:3 และ 4:3)
+                        cameraX = (videoWidth - cameraWidth) / 2;
+                        cameraY = (videoHeight - cameraHeight) / 2 + (flavor !== 'secret' ? (videoHeight * 0.03) : 0); // อยู่กึ่งกลาง
+                    }
+
                     if (video) {
                         const videoAspectRatio = video.videoWidth / video.videoHeight;
-                        let cameraWidth, cameraHeight, cameraX, cameraY;
-
-                        if (flavor === 'secret') {
-                            cameraWidth = Math.min(videoHeight * 0.88, videoWidth * 1.12);
-                            cameraHeight = Math.min(videoHeight * 1.12, videoWidth * 1.52);
-                            cameraX = (videoWidth - cameraWidth) / 2;
-                            cameraY = (videoHeight - cameraHeight) / 2;
-                        } else {
-                            cameraWidth = Math.min(videoHeight * 0.65, videoWidth * 0.75);
-                            cameraHeight = Math.min(videoHeight * 1.1, videoWidth * 1.3);
-                            cameraX = (videoWidth - cameraWidth) / 2;
-                            cameraY = (videoHeight - cameraHeight) / 2;
-                        }
 
                         let videoWidth2 = cameraWidth;
                         let videoHeight2 = videoWidth2 / videoAspectRatio;
@@ -671,28 +684,26 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
 
                             // วาดเส้นสีชมพูสำหรับรส secret
                             ctx.save();
-                            ctx.strokeStyle = '#ff69b4';
-                            ctx.lineWidth = 5;
+                            ctx.strokeStyle = '#e91e63';
+                            ctx.lineWidth = 8;
                             ctx.stroke();
                             ctx.restore();
                         } else {
                             // กรอบสี่เหลี่ยมมีขอบมนสำหรับ flavors อื่นๆ (ตามโค้ด UI)
                             const centerX = videoWidth / 2;
-                            const centerY = videoHeight / 2;
+                            const centerY = videoHeight / 2 + (flavor !== 'secret' ? (videoHeight * 0.03) : 0);
                             const borderRadius = Math.min(cameraWidth, cameraHeight) * 0.08;
                             ctx.beginPath();
                             ctx.roundRect(
                                 centerX - cameraWidth / 2,
-                                centerY - cameraHeight / 2,
+                                centerY - cameraHeight / 2, // อยู่กึ่งกลาง
                                 cameraWidth,
                                 cameraHeight,
                                 borderRadius
                             );
-                            ctx.save();
-                            ctx.strokeStyle = '#ff69b4';
-                            ctx.lineWidth = 4;
+                            ctx.strokeStyle = flavor === 'tonkotsu' ? '#d4af37' : flavor === 'kimchi-seafood' ? '#c2185b' : '#ff1744';
+                            ctx.lineWidth = 5;
                             ctx.stroke();
-                            ctx.restore();
                         }
                         ctx.clip();
 
@@ -706,9 +717,10 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                         } else {
                             ctx.drawImage(video, videoX, videoY, videoWidth2, videoHeight2);
                         }
+                        ctx.restore();
                     }
 
-                    // 3. วาด assets
+                    // 5. วาด assets อีกครั้งหลังเส้นกรอบกล้อง (ให้ทับเส้น)
                     loadedAssets.forEach(asset => {
                         const position = calculateAssetPosition(asset, videoWidth, videoHeight);
                         ctx.drawImage(asset.img, position.x, position.y, position.width, position.height);
@@ -716,11 +728,21 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
 
                     // 4. Encode frame
                     if (videoEncoderRef.current?.state === 'configured') {
-                        const elapsedTimeMs = currentTime - recordingStartTime;
-                        const timestamp = Math.round(elapsedTimeMs * 1000);
-                        const videoFrame = new VideoFrame(recordingCanvas, { timestamp });
-                        videoEncoderRef.current.encode(videoFrame);
-                        videoFrame.close();
+                        try {
+                            const elapsedTimeMs = currentTime - recordingStartTime;
+                            const timestamp = Math.round(elapsedTimeMs * 1000);
+                            const videoFrame = new VideoFrame(recordingCanvas, {
+                                timestamp,
+                                format: 'RGBA'
+                            });
+                            videoEncoderRef.current.encode(videoFrame);
+                            videoFrame.close();
+                        } catch (encodeError) {
+                            console.error("❌ VideoFrame encode error:", encodeError);
+                            // Fallback to MediaRecorder if VideoFrame fails
+                            isRecordingRef.current = false;
+                            startRecordingWithMediaRecorder();
+                        }
                     }
 
                     animationFrameIdRef.current = requestAnimationFrame(processFrame);
@@ -880,9 +902,9 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
             const finalCanvas = document.createElement('canvas');
             const ctx = finalCanvas.getContext('2d');
 
-            // ตั้งขนาด output ตามตัวอย่าง (9:16 aspect ratio)
-            const outputWidth = 1024;
-            const outputHeight = 1792;
+            // ตั้งขนาด output ให้เหมือนกับวิดีโอ (9:16 aspect ratio)
+            const outputWidth = 720;
+            const outputHeight = 1280;
             finalCanvas.width = outputWidth;
             finalCanvas.height = outputHeight;
 
@@ -903,17 +925,17 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                             let cameraWidth, cameraHeight, cameraX, cameraY;
 
                             if (flavor === 'secret') {
-                                // กรอบดอกไม้ 12 กลีบสำหรับ secret flavor (ตามโค้ด UI)
-                                cameraWidth = Math.min(outputHeight * 0.88, outputWidth * 1.12); // เพิ่มขึ้นนิดหน่อย
-                                cameraHeight = Math.min(outputHeight * 1.12, outputWidth * 1.52); // เพิ่มขึ้นนิดหน่อย
+                                // กรอบดอกไม้ 12 กลีบสำหรับ secret flavor (ตรงกับวิดีโอ)
+                                cameraWidth = Math.min(outputHeight * 0.88, outputWidth * 1.12);
+                                cameraHeight = Math.min(outputHeight * 1.12, outputWidth * 1.52);
                                 cameraX = (outputWidth - cameraWidth) / 2;
                                 cameraY = (outputHeight - cameraHeight) / 2;
                             } else {
-                                // กรอบสี่เหลี่ยมสำหรับ flavors อื่นๆ
-                                cameraWidth = Math.min(outputHeight * 0.65, outputWidth * 0.75);
-                                cameraHeight = Math.min(outputHeight * 1.1, outputWidth * 1.3);
+                                // กรอบสี่เหลี่ยมสำหรับ flavors อื่นๆ (ตรงกับวิดีโอ) - ปรับให้กว้างขึ้น
+                                cameraWidth = Math.min(outputHeight * 0.8, outputWidth * 0.8);
+                                cameraHeight = cameraWidth * (3 / 2); // 3:2 aspect ratio (อยู่ระหว่าง 5:3 และ 4:3)
                                 cameraX = (outputWidth - cameraWidth) / 2;
-                                cameraY = (outputHeight - cameraHeight) / 2;
+                                cameraY = (outputHeight - cameraHeight) / 2 + (flavor !== 'secret' ? (outputHeight * 0.03) : 0); // อยู่กึ่งกลาง
                             }
 
                             // คำนวณขนาด video ให้เต็มกรอบกล้อง
@@ -934,9 +956,9 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                                 // สร้าง mask รูปดอกไม้ 12 กลีบ (รูปทรงเดียวกับเส้นกรอบ)
                                 ctx.beginPath();
 
-                                // ใช้ขนาดและตำแหน่งเดียวกับเส้นกรอบ
-                                const frameWidth = Math.min(outputHeight * 0.88, outputWidth * 1.12); // เพิ่มขึ้นนิดหน่อย
-                                const frameHeight = Math.min(outputHeight * 1.12, outputWidth * 1.52); // เพิ่มขึ้นนิดหน่อย
+                                // ใช้ขนาดและตำแหน่งเดียวกับเส้นกรอบ (ตรงกับวิดีโอ)
+                                const frameWidth = Math.min(outputHeight * 0.88, outputWidth * 1.12);
+                                const frameHeight = Math.min(outputHeight * 1.12, outputWidth * 1.52);
                                 const centerX = outputWidth / 2;
                                 const centerY = outputHeight / 2;
 
@@ -950,25 +972,25 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                                     ctx.translate(centerX, centerY);
                                     ctx.rotate((i * 30) * Math.PI / 180);
 
-                                    // ใช้ขนาดและตำแหน่งเดียวกับเส้นกรอบ
+                                    // ใช้ขนาดและตำแหน่งเดียวกับเส้นกรอบ (ตรงกับวิดีโอ)
                                     const scale = Math.min(frameWidth, frameHeight) / 100;
                                     ctx.scale(scale, scale);
                                     ctx.roundRect(38.5 - 50, -11 - 50, 23, 54, 11.5);
                                     ctx.restore();
                                 }
                             } else {
-                                // สร้าง mask รูปสี่เหลี่ยมมีขอบมน (รูปทรงเดียวกับเส้นกรอบ)
-                                const frameWidth = Math.min(outputHeight * 0.65, outputWidth * 0.75);
-                                const frameHeight = Math.min(outputHeight * 1.1, outputWidth * 1.3);
+                                // สร้าง mask รูปสี่เหลี่ยมมีขอบมน (รูปทรงเดียวกับเส้นกรอบ) - ปรับเป็น 5:3
+                                const cameraWidth = Math.min(outputHeight * 0.65, outputWidth * 0.65);
+                                const cameraHeight = cameraWidth * (5 / 3); // 5:3 aspect ratio
                                 const centerX = outputWidth / 2;
-                                const centerY = outputHeight / 2;
-                                const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
+                                const centerY = outputHeight / 2 + (flavor !== 'secret' ? (outputHeight * 0.03) : 0);
+                                const borderRadius = Math.min(cameraWidth, cameraHeight) * 0.08;
 
                                 ctx.roundRect(
-                                    centerX - frameWidth / 2,
-                                    centerY - frameHeight / 2,
-                                    frameWidth,
-                                    frameHeight,
+                                    centerX - cameraWidth / 2,
+                                    centerY - cameraHeight / 2,
+                                    cameraWidth,
+                                    cameraHeight,
                                     borderRadius
                                 );
                             }
@@ -1023,7 +1045,7 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
     // ฟังก์ชันวาดเส้นกรอบในส่วนเว้า
     const drawCameraFrame = (ctx, canvasWidth, canvasHeight, callback) => {
         const centerX = canvasWidth / 2;
-        const centerY = canvasHeight / 2;
+        const centerY = canvasHeight / 2 + (flavor !== 'secret' ? (canvasHeight * 0.03) : 0);
 
         if (flavor === 'secret') {
             // กรอบดอกไม้ 12 กลีบสำหรับ secret flavor (ตามโค้ด UI)
@@ -1055,20 +1077,20 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
         } else {
             // กรอบสี่เหลี่ยมมีขอบมนสำหรับ flavors อื่นๆ (ตามโค้ด UI)
             // ใช้ขนาดเดียวกับส่วนเว้า
-            const frameWidth = Math.min(canvasHeight * 0.65, canvasWidth * 0.75);
-            const frameHeight = Math.min(canvasHeight * 1.1, canvasWidth * 1.3);
-            const borderRadius = Math.min(frameWidth, frameHeight) * 0.08;
+            const cameraWidth = Math.min(canvasHeight * 0.8, canvasWidth * 0.8);
+            const cameraHeight = cameraWidth * (3 / 2); // 3:2 aspect ratio (อยู่ระหว่าง 5:3 และ 4:3)
+            const borderRadius = Math.min(cameraWidth, cameraHeight) * 0.08;
 
             ctx.save();
-            ctx.strokeStyle = '#ff69b4';
-            ctx.lineWidth = 4; // เพิ่มความหนา
+            ctx.strokeStyle = flavor === 'tonkotsu' ? '#d4af37' : flavor === 'kimchi-seafood' ? '#c2185b' : '#ff1744';
+            ctx.lineWidth = 5;
 
             ctx.beginPath();
             ctx.roundRect(
-                centerX - frameWidth / 2,
-                centerY - frameHeight / 2,
-                frameWidth,
-                frameHeight,
+                centerX - cameraWidth / 2,
+                centerY - cameraHeight / 2, // อยู่กึ่งกลาง
+                cameraWidth,
+                cameraHeight,
                 borderRadius
             );
             ctx.stroke();
@@ -1116,7 +1138,8 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
         switch (flavor) {
             case 'tonkotsu':
                 assets.push(
-                    { src: tonkotsuHead, type: 'head', width: 180 },
+                    { src: mamaLogo, type: 'mama-logo', width: 120 },
+                    { src: tonkotsuHead, type: 'head', width: 480 },
                     { src: tonkotsuProp, type: 'prop', width: 120 },
                     { src: tonkotsuPack, type: 'pack', width: 150 },
                     { src: tonkotsuAsset01, type: 'asset01', width: 100 },
@@ -1126,7 +1149,8 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                 break;
             case 'kimchi-seafood':
                 assets.push(
-                    { src: kimchiHead, type: 'head', width: 180 },
+                    { src: mamaLogo, type: 'mama-logo', width: 120 },
+                    { src: kimchiHead, type: 'head', width: 480 },
                     { src: kimchiAsset01, type: 'asset01', width: 100 },
                     { src: kimchiAsset02, type: 'asset02', width: 80 },
                     { src: kimchiAsset03, type: 'asset03', width: 90 },
@@ -1136,7 +1160,8 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                 break;
             case 'cheesy-gochujang':
                 assets.push(
-                    { src: cheesyGochujangHead, type: 'head', width: 180 },
+                    { src: mamaLogo, type: 'mama-logo', width: 120 },
+                    { src: cheesyGochujangHead, type: 'head', width: 480 },
                     { src: cheesyGochujangAsset01, type: 'asset01', width: 100 },
                     { src: cheesyGochujangAsset02, type: 'asset02', width: 80 },
                     { src: cheesyGochujangAsset03, type: 'asset03', width: 90 },
@@ -1166,17 +1191,10 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
     // ฟังก์ชันคำนวณตำแหน่ง asset ตามโค้ด UI ที่แท้จริงเป๊ะๆ
     const calculateAssetPosition = (asset, canvasWidth, canvasHeight) => {
         const centerX = canvasWidth / 2;
-        const centerY = canvasHeight / 2;
+        const centerY = canvasHeight / 2 + (flavor !== 'secret' ? (canvasHeight * 0.03) : 0);
 
-        // คำนวณขนาดกล้องตามโค้ด UI (ตรงกับหน้า UI)
-        let cameraWidth, cameraHeight;
-        if (flavor === 'secret') {
-            cameraWidth = Math.min(canvasHeight * 0.95, canvasWidth * 1.2);
-            cameraHeight = Math.min(canvasHeight * 1.2, canvasWidth * 1.6);
-        } else {
-            cameraWidth = Math.min(canvasHeight * 0.65, canvasWidth * 0.75);
-            cameraHeight = Math.min(canvasHeight * 1.1, canvasWidth * 1.3);
-        }
+        // ใช้ขนาดคงที่ตาม UI จริง ไม่ใช้การคำนวณจาก cameraWidth
+        const scale = Math.min(canvasWidth, canvasHeight) / 720; // ปรับ scale factor ให้เหมาะสมกับขนาดใหม่
 
         // คำนวณตำแหน่งตาม calc() ในหน้า UI
         let cameraTop, cameraBottom;
@@ -1189,199 +1207,298 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
         }
 
         if (flavor === 'secret') {
-            // ตำแหน่ง asset สำหรับ secret flavor (ตรงกับหน้า UI เป๊ะๆ)
+            // ตำแหน่ง asset สำหรับ secret flavor (ใช้ขนาดคงที่)
             switch (asset.type) {
                 case 'mama-logo':
                     return {
-                        x: centerX - 60, // กลางจอ
-                        y: 50, // ด้านบน
-                        width: 120,
-                        height: 120
+                        x: centerX - 220 * scale,
+                        y: 30 * scale,
+                        width: 440 * scale,
+                        height: 330 * scale
                     };
                 case 'pack':
                     return {
-                        x: centerX - (cameraWidth * 0.737) / 2,
-                        y: cameraBottom,
-                        width: cameraWidth * 0.737,
-                        height: cameraWidth * 0.737
+                        x: centerX - (550 / 2) * scale,
+                        y: canvasHeight - 380 * scale,
+                        width: 550 * scale,
+                        height: 310 * scale
                     };
                 case 'asset01':
                     return {
-                        x: centerX - (cameraWidth * 0.345) / 2,
-                        y: cameraTop,
-                        width: cameraWidth * 0.345,
-                        height: cameraWidth * 0.345
+                        x: -50 * scale,
+                        y: 50 * scale,
+                        width: 231 * scale,
+                        height: 252 * scale
                     };
                 case 'asset02':
                     return {
-                        x: centerX + (cameraWidth / 2) - (cameraWidth * 0.54) + (cameraWidth * 0.36),
-                        y: cameraTop + 40,
-                        width: cameraWidth * 0.54,
-                        height: cameraWidth * 0.54
+                        x: centerX + 178 * scale,
+                        y: 190 * scale,
+                        width: 350 * scale,
+                        height: 255 * scale
                     };
                 case 'asset03':
                     return {
-                        x: -canvasWidth * 0.1,
-                        y: cameraTop + 180,
-                        width: cameraWidth * 0.28,
-                        height: cameraWidth * 0.28
+                        x: -100 * scale,
+                        y: 380 * scale,
+                        width: 240 * scale,
+                        height: 125 * scale
                     };
                 case 'asset04':
                     return {
-                        x: canvasWidth * 0.04,
-                        y: cameraBottom - cameraWidth * 0.24,
-                        width: cameraWidth * 0.17,
-                        height: cameraWidth * 0.17
+                        x: 48 * scale,
+                        y: canvasHeight - 405 * scale,
+                        width: 105 * scale,
+                        height: 105 * scale
                     };
                 default:
-                    return { x: 0, y: 0, width: 100, height: 100 };
+                    return { x: 0, y: 0, width: 100 * scale, height: 100 * scale };
             }
         } else if (flavor === 'tonkotsu') {
-            // ตำแหน่ง asset สำหรับ tonkotsu flavor (ตรงกับหน้า UI เป๊ะๆ)
+            // ตำแหน่ง asset สำหรับ tonkotsu flavor (ใช้ขนาดคงที่)
             switch (asset.type) {
+                case 'mama-logo':
+                    return {
+                        x: centerX - 70 * scale,
+                        y: 10 * scale,
+                        width: 140 * scale,
+                        height: 105 * scale
+                    };
                 case 'head':
                     return {
-                        x: centerX - 90,
-                        y: cameraTop,
-                        width: 180,
-                        height: 180
+                        x: centerX - (asset.width / 2) * scale,
+                        y: flavor !== 'secret' ? (150 * scale) - (50 * scale) : 150 * scale,
+                        width: asset.width * scale,
+                        height: (asset.width * 0.625) * scale
                     };
                 case 'prop':
                     return {
-                        x: 0,
-                        y: cameraBottom - 120,
-                        width: 120,
-                        height: 120
+                        x: -95 * scale,
+                        y: canvasHeight - 420 * scale,
+                        width: 360 * scale,
+                        height: 375 * scale
                     };
                 case 'pack':
                     return {
-                        x: canvasWidth - 150,
-                        y: cameraBottom - 150,
-                        width: 150,
-                        height: 150
+                        x: canvasWidth - 330 * scale,
+                        y: canvasHeight - 355 * scale,
+                        width: 300 * scale,
+                        height: 285 * scale
                     };
                 case 'asset01':
-                    return {
-                        x: 0,
-                        y: cameraTop + 150,
-                        width: 100,
-                        height: 100
-                    };
+                    if (flavor === 'kimchi-seafood') {
+                        // กิมจิ: ขยายขนาดใหญ่ขึ้น ขยับซ้ายไปนิดหน่อย
+                        return {
+                            x: 10 * scale,
+                            y: (canvasHeight / 2) - (50 * scale),
+                            width: 140 * scale,
+                            height: 140 * scale
+                        };
+                    } else if (flavor === 'tonkotsu') {
+                        // ทงคัดสึ: วางคาบเส้นฝั่งซ้ายของกรอบจอกล้อง และขยับขึ้นบนเยอะๆเลย
+                        return {
+                            x: 20 * scale,
+                            y: (canvasHeight / 2) - (250 * scale),
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    } else if (flavor !== 'secret') {
+                        // ขยับไปกึ่งกลางจอฝั่งซ้ายมือ
+                        return {
+                            x: 50 * scale,
+                            y: canvasHeight / 2,
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    } else {
+                        return {
+                            x: 50 * scale,
+                            y: 200 * scale,
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    }
                 case 'asset02':
                     return {
-                        x: canvasWidth - 90,
-                        y: cameraTop + 100,
-                        width: 80,
-                        height: 80
+                        x: canvasWidth - 105 * scale,
+                        y: (canvasHeight / 2) - (300 * scale),
+                        width: 80 * scale,
+                        height: 80 * scale
                     };
                 case 'asset03':
                     return {
-                        x: canvasWidth - 90,
-                        y: centerY - 45,
-                        width: 90,
-                        height: 90
+                        x: canvasWidth - 100 * scale,
+                        y: (canvasHeight / 2) - (105 / 2) * scale,
+                        width: 165 * scale,
+                        height: 105 * scale
                     };
                 default:
-                    return { x: 0, y: 0, width: 100, height: 100 };
+                    return { x: 0, y: 0, width: 100 * scale, height: 100 * scale };
             }
         } else if (flavor === 'kimchi-seafood') {
-            // ตำแหน่ง asset สำหรับ kimchi flavor (ตามโค้ด UI เป๊ะๆ)
+            // ตำแหน่ง asset สำหรับ kimchi flavor (ใช้ขนาดคงที่)
             switch (asset.type) {
+                case 'mama-logo':
+                    return {
+                        x: centerX - 70 * scale,
+                        y: 10 * scale,
+                        width: 140 * scale,
+                        height: 105 * scale
+                    };
                 case 'head':
                     return {
-                        x: centerX - 90,
-                        y: centerY - cameraHeight / 2,
-                        width: 180,
-                        height: 180
+                        x: centerX - (asset.width / 2) * scale,
+                        y: flavor !== 'secret' ? (150 * scale) - (50 * scale) : 150 * scale,
+                        width: asset.width * scale,
+                        height: (asset.width * 0.448) * scale
                     };
                 case 'asset01':
-                    return {
-                        x: 0,
-                        y: centerY - cameraHeight / 2 + 150,
-                        width: 100,
-                        height: 100
-                    };
+                    if (flavor === 'kimchi-seafood') {
+                        // กิมจิ: ขยายใหญ่ขึ้น ขยับซ้ายและขึ้นบน
+                        return {
+                            x: -48 * scale,
+                            y: (canvasHeight / 2) - (250 * scale),
+                            width: 160 * scale,
+                            height: 160 * scale
+                        };
+                    } else if (flavor !== 'secret') {
+                        // ขยับไปกึ่งกลางจอฝั่งซ้ายมือ
+                        return {
+                            x: 50 * scale,
+                            y: canvasHeight / 2,
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    } else {
+                        return {
+                            x: 50 * scale,
+                            y: 200 * scale,
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    }
                 case 'pack':
                     return {
-                        x: 0,
-                        y: centerY + cameraHeight / 2 - 120,
-                        width: 120,
-                        height: 120
+                        x: 55 * scale,
+                        y: canvasHeight - 260 * scale,
+                        width: 222.6 * scale,
+                        height: 192 * scale
                     };
                 case 'prop':
                     return {
-                        x: canvasWidth - 150,
-                        y: centerY + cameraHeight / 2 - 150,
-                        width: 150,
-                        height: 150
+                        x: canvasWidth - 300 * scale,
+                        y: canvasHeight - 385 * scale,
+                        width: 394.8 * scale,
+                        height: 353.4 * scale
                     };
                 case 'asset02':
                     return {
-                        x: canvasWidth - 90,
-                        y: centerY - cameraHeight / 2 + 100,
-                        width: 80,
-                        height: 80
+                        x: canvasWidth - 75 * scale,
+                        y: 380 * scale,
+                        width: 150 * scale,
+                        height: 120 * scale
                     };
                 case 'asset03':
                     return {
-                        x: canvasWidth - 90,
-                        y: centerY - 45,
-                        width: 90,
-                        height: 90
+                        x: canvasWidth - 125 * scale,
+                        y: (canvasHeight / 2) + 80 * scale,
+                        width: 100 * scale,
+                        height: 102 * scale
                     };
                 default:
-                    return { x: 0, y: 0, width: 100, height: 100 };
+                    return { x: 0, y: 0, width: 100 * scale, height: 100 * scale };
             }
         } else if (flavor === 'cheesy-gochujang') {
-            // ตำแหน่ง asset สำหรับ cheesy-gochujang flavor (ตรงกับหน้า UI เป๊ะๆ)
+            // ตำแหน่ง asset สำหรับ cheesy-gochujang flavor (ใช้ขนาดคงที่)
             switch (asset.type) {
+                case 'mama-logo':
+                    return {
+                        x: centerX - 70 * scale,
+                        y: 10 * scale,
+                        width: 140 * scale,
+                        height: 105 * scale
+                    };
                 case 'head':
                     return {
-                        x: centerX - 90,
-                        y: cameraTop,
-                        width: 180,
-                        height: 180
+                        x: centerX - (asset.width / 2) * scale,
+                        y: flavor !== 'secret' ? (150 * scale) - (50 * scale) : 150 * scale,
+                        width: asset.width * scale,
+                        height: (asset.width * 0.543) * scale
                     };
                 case 'asset01':
-                    return {
-                        x: 0,
-                        y: cameraTop + 150,
-                        width: 100,
-                        height: 100
-                    };
+                    if (flavor === 'kimchi-seafood') {
+                        // กิมจิ: ขยายขนาดใหญ่ขึ้น ขยับซ้ายไปนิดหน่อย
+                        return {
+                            x: 10 * scale,
+                            y: (canvasHeight / 2) - (50 * scale),
+                            width: 140 * scale,
+                            height: 140 * scale
+                        };
+                    } else if (flavor === 'tonkotsu') {
+                        // ทงคัดสึ: วางคาบเส้นฝั่งซ้ายของกรอบจอกล้อง และขยับขึ้นบนเยอะๆเลย
+                        return {
+                            x: 20 * scale,
+                            y: (canvasHeight / 2) - (250 * scale),
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    } else if (flavor === 'cheesy-gochujang') {
+                        // โกชูชีส: ใช้ตำแหน่งเดียวกับทงคัดสึ
+                        return {
+                            x: 20 * scale,
+                            y: (canvasHeight / 2) - (250 * scale),
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    } else if (flavor !== 'secret') {
+                        // ขยับไปกึ่งกลางจอฝั่งซ้ายมือ
+                        return {
+                            x: 50 * scale,
+                            y: canvasHeight / 2,
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    } else {
+                        return {
+                            x: 50 * scale,
+                            y: 200 * scale,
+                            width: 100 * scale,
+                            height: 100 * scale
+                        };
+                    }
                 case 'pack':
                     return {
-                        x: 0,
-                        y: cameraBottom - 120,
-                        width: 120,
-                        height: 120
+                        x: 30 * scale,
+                        y: canvasHeight - 320 * scale,
+                        width: 230 * scale,
+                        height: 255 * scale
                     };
                 case 'prop':
                     return {
-                        x: canvasWidth - 150,
-                        y: cameraBottom - 150,
-                        width: 150,
-                        height: 150
+                        x: canvasWidth - 205 * scale,
+                        y: canvasHeight - 325 * scale,
+                        width: 277 * scale,
+                        height: 406.5 * scale
                     };
                 case 'asset02':
                     return {
-                        x: canvasWidth - 90,
-                        y: cameraTop + 100,
-                        width: 80,
-                        height: 80
+                        x: canvasWidth - 80 * scale,
+                        y: 50 * scale,
+                        width: 104 * scale,
+                        height: 104.5 * scale
                     };
                 case 'asset03':
                     return {
-                        x: canvasWidth - 90,
-                        y: centerY - 45,
-                        width: 90,
-                        height: 90
+                        x: canvasWidth - 100 * scale,
+                        y: (canvasHeight / 2) + 200 * scale,
+                        width: 80 * scale,
+                        height: 83 * scale
                     };
                 default:
-                    return { x: 0, y: 0, width: 100, height: 100 };
+                    return { x: 0, y: 0, width: 100 * scale, height: 100 * scale };
             }
         } else {
-            return { x: 0, y: 0, width: 100, height: 100 };
+            return { x: 0, y: 0, width: 100 * scale, height: 100 * scale };
         }
     };
 
@@ -1695,7 +1812,7 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                         borderRadius: 'min(48px, 8vw)',
                         overflow: 'hidden',
                         background: '#000',
-                        border: '2px solid #ff69b4',
+                        border: flavor === 'tonkotsu' ? '2px solid #d4af37' : flavor === 'kimchi-seafood' ? '2px solid #c2185b' : '2px solid #ff1744',
                         boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
                         zIndex: 2,
                     }}
@@ -1712,7 +1829,7 @@ const PreviewScreen = ({ flavor, imageUrl, isFrontCamera, setIsFrontCamera, onRe
                             width: '100%',
                             height: '100%',
                             objectFit: 'cover',
-                            borderRadius: 'min(46px, 7.8vw)',
+                            borderRadius: '0',
                             transform: isFrontCamera ? 'scaleX(-1)' : 'none',
                             zIndex: 1,
                         }}

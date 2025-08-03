@@ -10,8 +10,6 @@ const flavorList = [
     { key: 'kimchi-seafood', img: kimchiSeafoodBtn, alt: 'Kimchi Seafood' },
     { key: 'tonkotsu', img: tonkotsuBtn, alt: 'Tonkotsu' },
     { key: 'cheesy-gochujang', img: cheesyGochujangBtn, alt: 'Cheesy Gochujang' },
-    // Add secret flavor (no image yet)
-    { key: 'secret', img: null, alt: 'Secret' },
 ];
 
 const CameraWithFlavorSelect = ({ onSelectFlavor, fading }) => {
@@ -21,7 +19,7 @@ const CameraWithFlavorSelect = ({ onSelectFlavor, fading }) => {
     const [isFrontCamera] = React.useState(true);
     const [isSmallScreen, setIsSmallScreen] = React.useState(false);
     const [pressed, setPressed] = React.useState(null);
-    const [showButtons, setShowButtons] = useState([false, false, false, false]);
+    const [showButtons, setShowButtons] = useState([false, false, false]);
     const [bgFadingIn, setBgFadingIn] = useState(false);
     const [titleAnim, setTitleAnim] = useState(false);
     const [cameraAnim, setCameraAnim] = useState(false);
@@ -66,10 +64,9 @@ const CameraWithFlavorSelect = ({ onSelectFlavor, fading }) => {
         // แสดงปุ่ม flavor ทีละอันหลังกล้องขึ้น
         const delay = 1200; // ms
         let btnTimers = [];
-        btnTimers[0] = setTimeout(() => setShowButtons([true, false, false, false]), delay + 400);
-        btnTimers[1] = setTimeout(() => setShowButtons([true, true, false, false]), delay + 600);
-        btnTimers[2] = setTimeout(() => setShowButtons([true, true, true, false]), delay + 800);
-        btnTimers[3] = setTimeout(() => setShowButtons([true, true, true, true]), delay + 1000);
+        btnTimers[0] = setTimeout(() => setShowButtons([true, false, false]), delay + 400);
+        btnTimers[1] = setTimeout(() => setShowButtons([true, true, false]), delay + 600);
+        btnTimers[2] = setTimeout(() => setShowButtons([true, true, true]), delay + 800);
         return () => {
             btnTimers.forEach(clearTimeout);
         };

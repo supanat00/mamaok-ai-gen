@@ -4,9 +4,9 @@ import promptBg from '../../assets/background/prompt-background.png';
 import generateBtn from '../../assets/buttons/generate.png';
 import arrowLeft from '../../assets/icons/arrow-left.png';
 import mamaLogo from '../../assets/logos/mama.png';
-import { generateImageWithDalle3 } from '../../api/generateImage.js'; // ใช้ฟังก์ชันจำลอง
+import { generateImageWithDalle3 } from '../../api/generateImage.js';
 
-const PromptInput = ({ onBack, fadingIn, onStartLoading, onImageGenerated, disabled }) => {
+const PromptInput = ({ onBack, fadingIn, onStartLoading, onImageGenerated, onError, disabled }) => {
     const videoRef = useRef(null);
     const [input, setInput] = useState('');
     const [generating, setGenerating] = useState(false);
@@ -16,6 +16,7 @@ const PromptInput = ({ onBack, fadingIn, onStartLoading, onImageGenerated, disab
     const [titleAnim, setTitleAnim] = useState(false);
     const [boxAnim, setBoxAnim] = useState(false);
     const [logoAnim, setLogoAnim] = useState(false);
+
     // const [isFrontCamera, setIsFrontCamera] = useState(true); // ลบออกเพราะไม่ได้ใช้
 
     useEffect(() => {
@@ -53,13 +54,28 @@ const PromptInput = ({ onBack, fadingIn, onStartLoading, onImageGenerated, disab
     const handleGenerate = async () => {
         if (!input.trim() || generating || disabled) return;
         setGenerating(true);
+
+        // เรียก onStartLoading ทันทีเพื่อแสดง loading screen
         if (onStartLoading) onStartLoading();
 
         try {
             const url = await generateImageWithDalle3({ prompt: input.trim() });
             if (onImageGenerated) onImageGenerated(url);
         } catch (err) {
-            alert('เกิดข้อผิดพลาดในการสร้างภาพ: ' + err.message);
+            let errorMessage = 'เกิดข้อผิดพลาดในการสร้างภาพ';
+
+            if (err.message.includes('400')) {
+                errorMessage = 'รูปแบบข้อความไม่ถูกต้องหรือพบคำไม่เหมาะสม กรุณากรอก prompt ใหม่อีกครั้ง';
+            } else if (err.message.includes('401')) {
+                errorMessage = 'API Key ไม่ถูกต้อง กรุณาตรวจสอบการตั้งค่า';
+            } else if (err.message.includes('429')) {
+                errorMessage = 'เกินโควต้าการใช้งาน กรุณารอสักครู่แล้วลองใหม่';
+            } else if (err.message.includes('500')) {
+                errorMessage = 'เซิร์ฟเวอร์มีปัญหา กรุณาลองใหม่ในภายหลัง';
+            }
+
+            // ส่ง error message ไปที่ App.jsx
+            if (onError) onError(errorMessage);
         } finally {
             setGenerating(false);
         }
@@ -177,25 +193,52 @@ const PromptInput = ({ onBack, fadingIn, onStartLoading, onImageGenerated, disab
                     animation: boxAnim ? 'prompt-box-bounce-in 0.7s' : 'none',
                 }}
             >
-                <input
-                    type="text"
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    disabled={generating}
-                    style={{
-                        width: '100%',
-                        fontSize: 18,
-                        border: 'none',
-                        outline: 'none',
-                        borderRadius: 10,
-                        padding: '10px 14px',
-                        marginBottom: 0,
-                        background: 'rgba(255,255,255,0.85)',
-                        color: '#222',
-                        boxSizing: 'border-box',
-                        textAlign: 'center',
-                    }}
-                />
+                <div style={{ width: '100%', position: 'relative' }}>
+                    <textarea
+                        value={input}
+                        onChange={e => {
+                            const value = e.target.value;
+                            if (value.length <= 500) {
+                                setInput(value);
+                            }
+                        }}
+                        disabled={generating}
+                        maxLength={500}
+                        placeholder="พิมพ์ข้อความของคุณที่นี่..."
+                        style={{
+                            width: '100%',
+                            fontSize: 16,
+                            border: 'none',
+                            outline: 'none',
+                            borderRadius: 10,
+                            padding: '12px 14px',
+                            marginBottom: '8px',
+                            background: 'rgba(255,255,255,0.85)',
+                            color: '#222',
+                            boxSizing: 'border-box',
+                            resize: 'none',
+                            minHeight: '80px',
+                            maxHeight: '120px',
+                            fontFamily: 'inherit',
+                            lineHeight: '1.4',
+                        }}
+                    />
+                    <div
+                        style={{
+                            position: 'absolute',
+                            bottom: '4px',
+                            right: '8px',
+                            fontSize: '12px',
+                            color: input.length >= 450 ? '#ff6b6b' : '#666',
+                            fontWeight: 'bold',
+                            background: 'rgba(255,255,255,0.9)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                        }}
+                    >
+                        {input.length}/500
+                    </div>
+                </div>
                 <button
                     onClick={handleGenerate}
                     disabled={!input.trim() || generating}
@@ -223,6 +266,7 @@ const PromptInput = ({ onBack, fadingIn, onStartLoading, onImageGenerated, disab
                     <img src={generateBtn} alt="generate" style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }} />
                 </button>
             </div>
+
             <style>{`
                 @keyframes prompt-title-bounce-in {
                     0% { opacity: 0; transform: translateX(-50%) scale(0.7); }
@@ -235,6 +279,14 @@ const PromptInput = ({ onBack, fadingIn, onStartLoading, onImageGenerated, disab
                     60% { opacity: 1; transform: translate(-50%, 0) scale(1.12); }
                     80% { transform: translate(-50%, 0) scale(0.96); }
                     100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+                }
+                @keyframes fadeIn {
+                    0% { opacity: 0; }
+                    100% { opacity: 1; }
+                }
+                @keyframes slideIn {
+                    0% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+                    100% { opacity: 1; transform: translateY(0) scale(1); }
                 }
             `}</style>
         </div>

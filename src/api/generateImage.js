@@ -1,48 +1,26 @@
-// ปิดการใช้งาน API จริงเพื่อประหยัดค่าใช้จ่าย
-// ระบบจะใช้การจำลองด้วยการตั้งเวลาแทน
-
-/*
-export async function generateImageWithStability({ prompt }) {
-  const apiKey = import.meta.env.VITE_STABILITY_API_KEY;
-  const formData = new FormData();
-  formData.append("prompt", prompt);
-  formData.append("output_format", "webp");
-  formData.append("aspect_ratio", "4:5"); // 4:5 เหมาะกับ vertical portrait
-
-  const response = await fetch(
-    "https://api.stability.ai/v2beta/stable-image/generate/core",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "image/*",
-      },
-      body: formData,
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`${response.status}: ${errorText}`);
-  }
-
-  // แปลง blob เป็น data URL เพื่อแสดงใน <img>
-  const blob = await response.blob();
-  return await new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.readAsDataURL(blob);
-  });
-}
-*/
-
+// เปิดการใช้งาน API จริง
 export async function generateImageWithDalle3({ prompt }) {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
-  // สร้าง prompt ที่รวมกับ prompt ที่กำหนดไว้
+  if (!apiKey) {
+    throw new Error("401: API Key ไม่ถูกต้อง กรุณาตรวจสอบการตั้งค่า");
+  }
+
+  // สร้าง prompt สำหรับวอลเปเปอร์ลวดลายซ้ำๆ
+  const basePrompt =
+    "wallpaper pattern, repeating design, continuous texture, full coverage, no borders, no seams, no gaps, dense pattern, uniform distribution, colorful, vibrant, modern design";
+
   const fullPrompt =
+    "I NEED to test how the tool works with extremely simple prompts. DO NOT add any detail, just use it AS-IS:" +
     prompt +
-    ", seamless pattern, colorful, modern, vector, small elements, high density, scattered, tightly packed, distributed evenly, no symmetry, no characters, no cartoon, no text, high quality";
+    ", wallpaper pattern, repeating design, continuous texture, full coverage, no borders, no seams, no gaps, dense pattern, uniform distribution, colorful, vibrant, modern design";
+
+  // แสดง prompt ที่ส่งไป
+  console.log("🎨 === PROMPT GENERATION ===");
+  console.log(`📝 User Input: "${prompt}"`);
+  console.log(`🎯 Base Prompt: "${basePrompt}"`);
+  console.log(`✅ Final Prompt: "${fullPrompt}"`);
+  console.log("🎨 =========================");
 
   const response = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
@@ -69,6 +47,22 @@ export async function generateImageWithDalle3({ prompt }) {
 
   // Convert base64 to data URL
   const dataUrl = `data:image/png;base64,${base64Data}`;
-  console.log("✅ Generated image converted to data URL from base64");
+  console.log("🎨 === IMAGE GENERATION COMPLETE ===");
+  console.log("✅ Wallpaper pattern generated successfully");
+  console.log("✅ Converted to data URL");
+  console.log("🎨 =================================");
   return dataUrl;
 }
+
+/*
+// ปิดการใช้งาน mock เพื่อประหยัดค่าใช้จ่าย
+export async function generateImageWithDalle3({ prompt }) {
+  // จำลองการสร้างภาพด้วยการตั้งเวลา 2 วินาที
+  console.log("🔄 Generating image with prompt:", prompt);
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  // ส่งคืน URL ของภาพตัวอย่าง (ใช้ภาพที่มีอยู่แล้ว)
+  console.log("✅ Mock image generation completed");
+  return "/mockup/mockup.png";
+}
+*/
